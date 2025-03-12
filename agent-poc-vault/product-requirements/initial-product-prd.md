@@ -3,12 +3,12 @@
 Below is the primary data model reference for all features and stories in this document. This model captures the essential fields needed to manage a code analysis request using the Python FastAPI server and LangGraph workflow:
 
 ```
-AnalysisRequest
+CodeAnalysis
 ---------------
-id: string (unique identifier for the request)
+id: ObjectId (unique identifier for the request)
 repository_url: string (URL or identifier of the repository to be analyzed)
-status: string (e.g., "PENDING", "IN_PROGRESS", "COMPLETED", "ERROR")
-result: text or JSON (stores the final architecture documentation in markdown or other structured format)
+status: string (e.g., "IN_PROGRESS", "COMPLETED", "ERROR")
+architecture_documentation: text or JSON (stores the final architecture documentation in markdown or other structured format)
 created_at: datetime (timestamp for creation)
 updated_at: datetime (timestamp for last update)
 ```
@@ -20,7 +20,7 @@ This project provides a Python FastAPI wrapper around a LangGraph workflow for a
 1. **Repository Ingest Node**, which ingests the repository data.
 2. **Architecture Documentation Node**, which generates architecture documentation based on the ingested repository data.
 
-A client can submit a code analysis request via a `POST /api/v1/code-analysis` endpoint. The server immediately returns an identifier (`id`) for the request and then processes the analysis asynchronously by invoking the LangGraph workflow. A client can then query the status and results via a `GET /api/v1/code-analysis/{id}` endpoint.
+A client can submit a code analysis request via a `POST /api/v1/code-analysis` endpoint. The server syncronously returns an identifier (`id`) for the request and then processes the analysis asynchronously by invoking the LangGraph workflow. A client can then query the status and results via a `GET /api/v1/code-analysis/{id}` endpoint.
 
 Below are the features and their corresponding user stories, providing both product requirements and implementation details.
 
@@ -46,16 +46,16 @@ This feature covers the endpoint that receives a request to analyze a code repos
     
     - **Given** a valid repository URL is provided in the request body,
     - **When** the client sends a `POST /api/v1/code-analysis` request,
-    - **Then** the server **must** respond with a `201 Created` status code (or `200 OK` if preferred) and a JSON payload containing at least the newly generated `id`.
-    - **And** the `status` in the data store should be set to `"PENDING"` or `"IN_PROGRESS"` immediately after creation.
+    - **Then** the server **must** respond with a `201 Created` status code and a JSON payload containing at least the newly generated `id`.
+    - **And** the `status` in the data store should be set to `"IN_PROGRESS"` immediately after creation.
 - **Detailed Architecture Design Notes**:
     
     - On receiving the request, the server generates a unique `id` (UUID or similar).
-    - A new `AnalysisRequest` record is created in the data store with `repository_url`, `status` = `"PENDING"` (or `"IN_PROGRESS"`), and timestamps.
+    - A new `CodeAnalysis` record is created in the data store with `repository_url`, `status` = `"IN_PROGRESS"` , and timestamps.
     - The system triggers an asynchronous process that will invoke the LangGraph workflow to handle the actual analysis.
 - **Dependencies / Related Stories**:
     
-    - Depends on **Feature 4** (Data Storage) for persisting the `AnalysisRequest`.
+    - Depends on **Feature 4** (Data Storage) for persisting the `CodeAnalysis`.
     - Relates to **Feature 3** (LangGraph Workflow) for the actual asynchronous analysis process.
 
 ---
@@ -75,21 +75,21 @@ This feature covers the endpoint that allows clients to retrieve the current sta
     
 - **Design/UX Considerations**:
     
-    - The returned JSON must include `id`, `status`, and possibly a partial or empty `result` if the analysis is not yet complete.
+    - The returned JSON must include `id`, `status`, and possibly a partial or empty `architecture_documentation` if the analysis is not yet complete.
 - **Testable Acceptance Criteria** (BDD):
     
     - **Given** a valid `id` was previously returned from a successful POST request,
     - **When** the client sends a `GET /api/v1/code-analysis/{id}` request,
-    - **Then** the server **must** respond with a JSON object containing the `id`, `status`, and `result` (if completed).
-    - **And** if the analysis is not complete, the `result` may be `null` or empty.
+    - **Then** the server **must** respond with a JSON object containing the `id`, `status`, and `architecture_documentation` (if completed).
+    - **And** if the analysis is not complete, the `architecture_documentation` may be `null` or empty.
 - **Detailed Architecture Design Notes**:
     
-    - The endpoint looks up the `AnalysisRequest` record by `id` in the data store.
-    - If found, return the current `status`. If `status` is `"COMPLETED"`, include the final `result`.
+    - The endpoint looks up the `CodeAnalysis` record by `id` in the data store.
+    - If found, return the current `status`. If `status` is `"COMPLETED"`, include the final `architecture_documentation`.
     - If the `id` does not exist, return an appropriate error (e.g., `404 Not Found`).
 - **Dependencies / Related Stories**:
     
-    - Depends on **Feature 4** (Data Storage) for retrieving the `AnalysisRequest`.
+    - Depends on **Feature 4** (Data Storage) for retrieving the `CodeAnalysis`.
     - Depends on **Feature 3** (LangGraph Workflow) to populate the final result.
 
 ### Story 2.2: **Handle Invalid or Missing IDs**
@@ -114,7 +114,7 @@ This feature covers the endpoint that allows clients to retrieve the current sta
     - Simple lookup logic in the data store. If no record found, respond with `404`.
 - **Dependencies / Related Stories**:
     
-    - Depends on **Feature 4** (Data Storage) for checking existence of the `AnalysisRequest`.
+    - Depends on **Feature 4** (Data Storage) for checking existence of the `CodeAnalysis`.
 
 ---
 
@@ -136,15 +136,15 @@ This feature covers how the system actually processes the analysis request via L
     - No direct user interface. This is an internal step triggered asynchronously after receiving the code analysis request.
 - **Testable Acceptance Criteria** (BDD):
     
-    - **Given** a newly created `AnalysisRequest` with `status` = `"PENDING"` or `"IN_PROGRESS"`,
+    - **Given** a newly created `CodeAnalysis` with `status` = `"IN_PROGRESS"`,
     - **When** the asynchronous workflow begins,
     - **Then** the Repository Ingest Node must successfully retrieve the repository data (e.g., clone or parse the repository).
     - **And** upon success, the workflow transitions to the next node.
-    - **And** if there is a failure, the system updates the `AnalysisRequest` with `status` = `"ERROR"`.
+    - **And** if there is a failure, the system updates the `CodeAnalysis` with `status` = `"ERROR"`.
 - **Detailed Architecture Design Notes**:
     
     - The asynchronous process (e.g., a background worker or a task queue) calls the LangGraph workflow.
-    - The first node in the workflow is the Repository Ingest Node, which uses `repository_url` from the `AnalysisRequest`.
+    - The first node in the workflow is the Repository Ingest Node, which uses `repository_url` from the `CodeAnalysis`.
     - Upon successful ingestion, the node outputs the repository data to be consumed by the next node.
 - **Dependencies / Related Stories**:
     
@@ -168,14 +168,14 @@ This feature covers how the system actually processes the analysis request via L
     - **Given** the Repository Ingest Node has completed successfully,
     - **When** the Architecture Documentation Node runs,
     - **Then** it must produce a markdown or structured text describing the architecture of the repository.
-    - **And** upon success, it stores the output in the `AnalysisRequest.result`.
-    - **And** the `AnalysisRequest.status` is updated to `"COMPLETED"`.
+    - **And** upon success, it stores the output in the `CodeAnalysis.architecture_documentation`.
+    - **And** the `CodeAnalysis.status` is updated to `"COMPLETED"`.
 - **Detailed Architecture Design Notes**:
     
     - The node receives the repository data from the previous node.
     - The node uses the LangGraph logic (prompting, LLM calls, or other steps) to create architecture documentation.
-    - Upon completion, the node updates the `AnalysisRequest` record’s `result` with the final documentation in markdown format.
-    - The node sets the `AnalysisRequest.status` to `"COMPLETED"`.
+    - Upon completion, the node updates the `CodeAnalysis` record’s `architecture_documentation` with the final documentation in markdown format.
+    - The node sets the `CodeAnalysis.status` to `"COMPLETED"`.
 - **Dependencies / Related Stories**:
     
     - Depends on **Story 3.1** (Repository Ingest Node).
@@ -195,15 +195,15 @@ This feature covers how the system actually processes the analysis request via L
     - No direct user interface. The main requirement is that the POST request returns immediately, and the actual workflow runs in the background.
 - **Testable Acceptance Criteria** (BDD):
     
-    - **Given** a valid `AnalysisRequest` has been created,
+    - **Given** a valid `CodeAnalysis` has been created,
     - **When** the system triggers the LangGraph workflow,
     - **Then** the workflow executes the nodes in order (Repository Ingest Node, then Architecture Documentation Node).
-    - **And** the system updates the `AnalysisRequest` status accordingly (`IN_PROGRESS`, `COMPLETED`, or `ERROR`).
+    - **And** the system updates the `CodeAnalysis` status accordingly (`IN_PROGRESS`, `COMPLETED`, or `ERROR`).
 - **Detailed Architecture Design Notes**:
     
     - A background task or asynchronous queue system is recommended to avoid blocking the main API thread.
     - The workflow must handle errors gracefully (e.g., network issues, repository access failures).
-    - On error, set the `AnalysisRequest.status` to `"ERROR"` and store any error details in logs (not necessarily in the data model).
+    - On error, set the `CodeAnalysis.status` to `"ERROR"` and store any error details in logs (not necessarily in the data model).
 - **Dependencies / Related Stories**:
     
     - Depends on **Feature 1** for the initial trigger.
@@ -213,15 +213,15 @@ This feature covers how the system actually processes the analysis request via L
 
 ## FEATURE 4: **Data Storage and Persistence**
 
-This feature covers how `AnalysisRequest` entities are stored, updated, and retrieved.
+This feature covers how `CodeAnalysis` entities are stored, updated, and retrieved.
 
-### Story 4.1: **Persist AnalysisRequest on Creation**
+### Story 4.1: **Persist CodeAnalysis on Creation**
 
 - **Story Type**: Backend API
     
 - **Story**:  
     **As a** system,  
-    **I want** to store newly created `AnalysisRequest` records in a persistent data store,  
+    **I want** to store newly created `CodeAnalysis` records in a persistent data store,  
     **so that** I can later retrieve and update their status and results.
     
 - **Design/UX Considerations**:
@@ -231,7 +231,7 @@ This feature covers how `AnalysisRequest` entities are stored, updated, and retr
     
     - **Given** a `POST /api/v1/code-analysis` request,
     - **When** the system creates a new record,
-    - **Then** the `AnalysisRequest` data is persisted with all required fields (e.g., `id`, `repository_url`, `status`, timestamps).
+    - **Then** the `CodeAnalysis` data is persisted with all required fields (e.g., `id`, `repository_url`, `status`, timestamps).
     - **And** if persistence fails, the system must return an appropriate error to the client (e.g., `500 Internal Server Error`).
 - **Detailed Architecture Design Notes**:
     
@@ -242,13 +242,13 @@ This feature covers how `AnalysisRequest` entities are stored, updated, and retr
     - Required by **Feature 1** for storing the new request.
     - Required by **Feature 2** and **Feature 3** to retrieve/update status.
 
-### Story 4.2: **Update AnalysisRequest Status and Results**
+### Story 4.2: **Update CodeAnalysis Status and Results**
 
 - **Story Type**: Backend API
     
 - **Story**:  
     **As a** system,  
-    **I want** to update the status and result fields of an existing `AnalysisRequest`,  
+    **I want** to update the status and result fields of an existing `CodeAnalysis`,  
     **so that** the client can see the latest progress or final outcome.
     
 - **Design/UX Considerations**:
@@ -256,14 +256,14 @@ This feature covers how `AnalysisRequest` entities are stored, updated, and retr
     - No direct UI; changes should be atomic and consistent.
 - **Testable Acceptance Criteria** (BDD):
     
-    - **Given** an `AnalysisRequest` exists in the data store,
+    - **Given** an `CodeAnalysis` exists in the data store,
     - **When** the workflow nodes complete or fail,
-    - **Then** the system updates the `AnalysisRequest` `status` to `"COMPLETED"` or `"ERROR"` accordingly,
-    - **And** if `"COMPLETED"`, it updates the `result` with the generated architecture documentation.
+    - **Then** the system updates the `CodeAnalysis` `status` to `"COMPLETED"` or `"ERROR"` accordingly,
+    - **And** if `"COMPLETED"`, it updates the `architecture_documentation` with the generated architecture documentation.
 - **Detailed Architecture Design Notes**:
     
     - Must handle concurrent updates in case multiple parts of the system attempt to update the status.
-    - The final result should be stored in `AnalysisRequest.result` as text/markdown or JSON, depending on the chosen format.
+    - The final result should be stored in `CodeAnalysis.architecture_documentation` as text/markdown or JSON, depending on the chosen format.
 - **Dependencies / Related Stories**:
     
     - Directly needed by **Feature 3** (LangGraph Workflow) to update statuses and store results.
