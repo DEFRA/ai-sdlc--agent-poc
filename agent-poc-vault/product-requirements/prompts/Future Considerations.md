@@ -1,0 +1,3 @@
+- Subgraph for Repo ingest process, so that ingest can happen when any tool endpoint is called, or once, then shared. optional parameter `{"repository_ingest_id: ObjectId}` could be sent into endpoints, then run the ingest process if it doesn't exist
+- Testing - Testing agent can reuse the LangGraph flow developed for the Documentation agent
+- Potentially we could replace the current code checking tool with the enhanced LangGraph version
