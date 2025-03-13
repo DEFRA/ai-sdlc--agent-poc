@@ -27,7 +27,7 @@ This project provides a Python FastAPI wrapper around a LangGraph workflow for a
 1. **Repository Ingest Node**, which ingests the repository data.
 2. **Architecture Documentation Node**, which generates architecture documentation based on the ingested repository data.
 
-A client can submit a code analysis request via a `POST /api/v1/code-analysis` endpoint. The server syncronously returns an identifier (`_id`) for the request (sourced from MongoDB) and then processes the analysis asynchronously by invoking the LangGraph workflow. A client can then query the status and results via a `GET /api/v1/code-analysis/{id}` endpoint.
+A client can submit a code analysis request via a `POST /api/v1/code-analysis` endpoint. The server synchronously returns an identifier (`_id`) for the request (sourced from MongoDB) and then processes the analysis asynchronously by invoking the LangGraph workflow. A client can then query the status and results via a `GET /api/v1/code-analysis/{id}` endpoint.
 
 Below are the features and their corresponding user stories, providing both product requirements and implementation details.
 
