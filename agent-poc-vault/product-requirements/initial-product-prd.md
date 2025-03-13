@@ -40,31 +40,31 @@ This feature covers the endpoint that receives a request to analyze a code repos
 ### Story 1.1: **Submit Code Analysis Request**
 
 - **Story Type**: Backend API
-    
-- **Story**:  
-    **As a** developer or service client,  
-    **I want** to submit a repository URL for code analysis,  
+
+- **Story**:
+    **As a** developer or service client,
+    **I want** to submit a repository URL for code analysis,
     **so that** I can receive an immediate `_id` to track the analysis process.
-    
+
 - **Design/UX Considerations**:
-    
+
     - Since this is a backend endpoint, no direct user interface is provided. However, the response must be clear and structured (e.g., JSON) so that clients can parse the returned `_id`.
-      
+
 - **Testable Acceptance Criteria** (BDD):
-    
+
     - **Given** a valid repository URL is provided in the request body,
     - **When** the client sends a `POST /api/v1/code-analysis` request,
     - **Then** the server **must** respond with a `201 Created` status code and a JSON payload containing at least the newly generated `_id`.
     - **And** the `status` in the MongoDB collection should be set to `"IN_PROGRESS"` immediately after creation.
-      
+
 - **Detailed Architecture Design Notes**:
-    
+
     - On receiving the request, MongoDB generates a unique `_id`.
     - A new **CodeAnalysis** document is created in the database with `repository_url`, `status` = `"IN_PROGRESS"`, and timestamps.
     - The system triggers an asynchronous process that will invoke the LangGraph workflow to handle the actual analysis.
-      
+
 - **Dependencies / Related Stories**:
-    
+
     - Depends on **Feature 4** (Data Storage) for persisting the **CodeAnalysis** document.
     - Relates to **Feature 3** (LangGraph Workflow) for the actual asynchronous analysis process.
 
@@ -77,53 +77,53 @@ This feature covers the endpoint that allows clients to retrieve the current sta
 ### Story 2.1: **Get Analysis Status**
 
 - **Story Type**: Backend API
-    
-- **Story**:  
-    **As a** developer or service client,  
-    **I want** to retrieve the status of a previously submitted code analysis request,  
+
+- **Story**:
+    **As a** developer or service client,
+    **I want** to retrieve the status of a previously submitted code analysis request,
     **so that** I can monitor its progress and know when results are available.
-    
+
 - **Design/UX Considerations**:
-    
+
     - The returned JSON must include `_id`, `status`, and possibly an empty `architecture_documentation` if the analysis is not yet complete.
 - **Testable Acceptance Criteria** (BDD):
-    
+
     - **Given** a valid `_id` was previously returned from a successful POST request,
     - **When** the client sends a `GET /api/v1/code-analysis/{id}` request,
     - **Then** the server **must** respond with a JSON object containing the `_id`, `status`, and architecture_documentation (if completed).
     - **And** if the analysis is not complete (`status = "IN_PROGRESS"`), the `architecture_documentation` may be `null` or empty.
 - **Detailed Architecture Design Notes**:
-    
+
     - The endpoint looks up the **CodeAnalysis** document by `_id` in MongoDB.
     - If found, return the current `status`. If `status` is `"COMPLETED"`, include the final `architecture_documentation`.
     - If the `_id` does not exist, return an appropriate error (e.g., `404 Not Found`).
 - **Dependencies / Related Stories**:
-    
+
     - Depends on **Feature 4** (Data Storage) for retrieving the **CodeAnalysis** document.
     - Depends on **Feature 3** (LangGraph Workflow) to populate the final result.
 
 ### Story 2.2: **Handle Invalid or Missing IDs**
 
 - **Story Type**: Backend API
-    
-- **Story**:  
-    **As a** developer or service client,  
-    **I want** clear error handling when requesting the status of a non-existent code analysis request,  
+
+- **Story**:
+    **As a** developer or service client,
+    **I want** clear error handling when requesting the status of a non-existent code analysis request,
     **so that** I understand if I have provided an incorrect or outdated ID.
-    
+
 - **Design/UX Considerations**:
-    
+
     - The response should be a structured JSON error with a relevant status code (e.g., `404`).
 - **Testable Acceptance Criteria** (BDD):
-    
+
     - **Given** an `_id` that does not exist in the database,
     - **When** the client sends a `GET /api/v1/code-analysis/{id}`,
     - **Then** the server **must** return a `404 Not Found` status and a descriptive JSON error message.
 - **Detailed Architecture Design Notes**:
-    
+
     - Simple lookup logic in the MongoDB collection. If no document found, respond with `404`.
 - **Dependencies / Related Stories**:
-    
+
     - Depends on **Feature 4** (Data Storage) for checking existence of the **CodeAnalysis** document.
 
 ---
@@ -135,17 +135,17 @@ This feature covers how the system actually processes the analysis request via L
 ### Story 3.1: **Invoke Repository Ingest Node**
 
 - **Story Type**: Backend API (internal integration)
-    
-- **Story**:  
-    **As a** system,  
-    **I want** to ingest the repository data via the LangGraph "Repository Ingest Node,"  
+
+- **Story**:
+    **As a** system,
+    **I want** to ingest the repository data via the LangGraph "Repository Ingest Node,"
     **so that** I can prepare the data for architecture documentation.
-    
+
 - **Design/UX Considerations**:
-    
+
     - No direct user interface. This is an internal step triggered asynchronously after receiving the code analysis request.
 - **Testable Acceptance Criteria** (BDD):
-    
+
     - **Given** a newly created **CodeAnalysis** document with `status` = `"IN_PROGRESS"`,
     - **When** the asynchronous workflow begins,
     - **Then** the Repository Ingest Node must successfully call the external "Repository Ingest API" endpoint via a POST to `/api/v1/repository-ingest`
@@ -153,7 +153,7 @@ This feature covers how the system actually processes the analysis request via L
     - **And** the workflow transitions to the next node.
     - **And** if there is a failure, the system updates the **CodeAnalysis** `status` = `"ERROR"`.
 - **Detailed Architecture Design Notes**:
-    
+
     - The asynchronous process (e.g., a background worker or a task queue) calls the LangGraph workflow.
     - The first node in the workflow is the Repository Ingest Node, which uses `repository_url` from the **CodeAnalysis** document.
     - This node calls the "Repository Ingest API" to perform the actual ingestion.
@@ -161,65 +161,65 @@ This feature covers how the system actually processes the analysis request via L
     - We need to add an .env variable for the "Repository Ingest API" server base url
     - The "Repository Ingest API" endpoint via a POST to `/api/v1/repository-ingest` with the input data `{"repository_url": string}` , then returns the following data, to be added to the long-term storage in the mongoDB `CodeAnalysis` collection: `{"ingested_repository: string, "technologies": [strings]}`
 - **Dependencies / Related Stories**:
-    
+
     - Depends on the data from **Feature 1** (the submitted `repository_url`).
     - The output from this story is consumed by **Story 3.2** (Architecture Documentation Node).
 
 ### Story 3.2: **Generate Architecture Documentation Node**
 
 - **Story Type**: Backend API (internal integration)
-    
-- **Story**:  
-    **As a** system,  
-    **I want** to generate architecture documentation from the ingested repository data,  
+
+- **Story**:
+    **As a** system,
+    **I want** to generate architecture documentation from the ingested repository data,
     **so that** I can produce the final documentation for the code analysis request.
-    
+
 - **Design/UX Considerations**:
-    
+
     - No direct UI; this is an internal node in the workflow.
 - **Testable Acceptance Criteria** (BDD):
-    
+
     - **Given** the Repository Ingest Node has completed successfully,
     - **When** the Architecture Documentation Node runs,
     - **Then** it must produce a markdown or structured text describing the architecture of the repository.
     - **And** upon success, it stores the output in the **CodeAnalysis** `architecture_documentation` in the long-term storage in the mongoDB `CodeAnalysis` collection.
     - **And** the **CodeAnalysis** `status` is updated to `"COMPLETED"`.
 - **Detailed Architecture Design Notes**:
-    
+
     - The node receives the repository data from the previous node.
     - The node uses the LangGraph logic (prompting, LLM calls, or other steps) to create architecture documentation.  The input into the LLM calls will be the `{"ingested_repository: string, "technologies": [strings]}` from the previous step, as retrieved from the long-term storage in the mongoDB `CodeAnalysis` collection.
     - Upon completion, the node updates the **CodeAnalysis** record’s `architecture_documentation` with the final documentation in markdown format and saves it into the long-term storage in the mongoDB `CodeAnalysis` collection.
     - The node sets the **CodeAnalysis** `status` to `"COMPLETED"`.
 - **Dependencies / Related Stories**:
-    
+
     - Depends on **Story 3.1** (Repository Ingest Node).
     - Final output is consumed by **Feature 2** (Status and Results retrieval).
 
 ### Story 3.3: **Asynchronous Workflow Orchestration**
 
 - **Story Type**: Backend API (internal integration)
-    
-- **Story**:  
-    **As a** system,  
-    **I want** to orchestrate the LangGraph workflow steps asynchronously,  
+
+- **Story**:
+    **As a** system,
+    **I want** to orchestrate the LangGraph workflow steps asynchronously,
     **so that** each node is executed in sequence without blocking the main API thread.
-    
+
 - **Design/UX Considerations**:
-    
+
     - No direct user interface. The main requirement is that the `POST` request returns immediately, and the actual workflow runs in the background.
 - **Testable Acceptance Criteria** (BDD):
-    
+
     - **Given** a valid **CodeAnalysis** document has been created,
     - **When** the system triggers the LangGraph workflow,
     - **Then** the workflow executes the nodes in order (Repository Ingest Node, then Architecture Documentation Node).
     - **And** the system updates the **CodeAnalysis** `status` accordingly (`"IN_PROGRESS"`, `"COMPLETED"`, or `"ERROR"`).
 - **Detailed Architecture Design Notes**:
-    
+
     - A background task or asynchronous queue system is recommended to avoid blocking the main API thread.
     - The workflow must handle errors gracefully (e.g., network issues, repository access failures).
     - On error, set the **CodeAnalysis** `status` to `"ERROR"` and store any error details in logs (not necessarily in the data model).
 - **Dependencies / Related Stories**:
-    
+
     - Depends on **Feature 1** for the initial trigger.
     - Involves **Story 3.1** and **Story 3.2** for the actual node logic.
 
@@ -232,54 +232,53 @@ This feature covers how **CodeAnalysis** entities are stored, updated, and retri
 ### Story 4.1: **Persist CodeAnalysis on Creation**
 
 - **Story Type**: Backend API
-    
-- **Story**:  
-    **As a** system,  
-    **I want** to store newly created **CodeAnalysis** documents in a MongoDB collection,  
+
+- **Story**:
+    **As a** system,
+    **I want** to store newly created **CodeAnalysis** documents in a MongoDB collection,
     **so that** I can later retrieve and update their status and results.
-    
+
 - **Design/UX Considerations**:
-    
+
     - No direct user interface; must ensure reliability and atomic creation of documents.
 - **Testable Acceptance Criteria** (BDD):
-    
+
     - **Given** a `POST /api/v1/code-analysis` request,
     - **When** the system creates a new **CodeAnalysis** document,
     - **Then** the MongoDB `_id` is returned to the client, and the document is persisted with all required fields (`repository_url`, `status` = `"IN_PROGRESS"`, timestamps).
     - **And** if persistence fails, the system must return an appropriate error to the client (e.g., `500 Internal Server Error`).
 - **Detailed Architecture Design Notes**:
-    
+
     - Use MongoDB ODM (Motor) to insert the document.
     - Return the newly created `_id` to the client.
 - **Dependencies / Related Stories**:
-    
+
     - Required by **Feature 1** for storing the new request.
     - Required by **Feature 2** and **Feature 3** to retrieve/update status.
 
 ### Story 4.2: **Update CodeAnalysis Status and Results**
 
 - **Story Type**: Backend API
-    
-- **Story**:  
-    **As a** system,  
-    **I want** to update the status and result fields of an existing **CodeAnalysis** document,  
+
+- **Story**:
+    **As a** system,
+    **I want** to update the status and result fields of an existing **CodeAnalysis** document,
     **so that** the client can see the latest progress or final outcome.
-    
+
 - **Design/UX Considerations**:
-    
+
     - No direct UI; changes should be atomic and consistent.
 - **Testable Acceptance Criteria** (BDD):
-    
+
     - **Given** a **CodeAnalysis** document exists in the MongoDB collection,
     - **When** the workflow nodes complete or fail,
     - **Then** the system updates the **CodeAnalysis** `status` to `"COMPLETED"` or `"ERROR"` accordingly,
     - **And** if `"COMPLETED"`, it updates the architecture_documentation with the generated architecture documentation.
 - **Detailed Architecture Design Notes**:
-    
+
     - Must handle concurrent updates in case multiple parts of the system attempt to update the same document.
     - The final result should be stored in `CodeAnalysis.architecture_documentation` as text/markdown or JSON, depending on the chosen format.
 - **Dependencies / Related Stories**:
-    
+
     - Directly needed by **Feature 3** (LangGraph Workflow) to update statuses and store results.
     - Exposed by **Feature 2** (GET endpoint) to retrieve the final result.
-
