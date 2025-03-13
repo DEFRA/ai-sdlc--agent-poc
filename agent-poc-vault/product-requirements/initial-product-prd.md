@@ -9,9 +9,16 @@ _id: ObjectId (MongoDB-generated primary key)
 repository_url: string (URL or identifier of the repository to be analyzed)
 status: string (one of "IN_PROGRESS", "COMPLETED", or "ERROR")
 architecture_documentation: text or JSON (stores the final architecture documentation in markdown or other structured format)
+ingested_repository: text (the 'ingested_repository' result of the call to the "Repository Ingest API")
+technologies: string[] (the 'technologies' result of the call to the "Repository Ingest API")
 created_at: datetime (timestamp for creation)
 updated_at: datetime (timestamp for last update)
 ```
+
+## LangGraph State Schema
+
+- We will use mongoDB for LangGraph checkpointing
+- The state schema will need to include `repository_url`, `status`, `architecture_documentation`, `ingested_repository`, `technologies`
 
 **CONTEXT**
 
@@ -142,7 +149,7 @@ This feature covers how the system actually processes the analysis request via L
     - **Given** a newly created **CodeAnalysis** document with `status` = `"IN_PROGRESS"`,
     - **When** the asynchronous workflow begins,
     - **Then** the Repository Ingest Node must successfully call the external "Repository Ingest API" endpoint via a POST to `/api/v1/repository-ingest`
-    - **And** upon success, the node must update the LangGraph long-term storage with the result.
+    - **And** upon success, the node must update the long-term storage in the mongoDB `CodeAnalysis` collection with the result.
     - **And** the workflow transitions to the next node.
     - **And** if there is a failure, the system updates the **CodeAnalysis** `status` = `"ERROR"`.
 - **Detailed Architecture Design Notes**:
@@ -152,7 +159,7 @@ This feature covers how the system actually processes the analysis request via L
     - This node calls the "Repository Ingest API" to perform the actual ingestion.
     - Upon successful ingestion, the node outputs the repository data to be consumed by the next node.
     - We need to add an .env variable for the "Repository Ingest API" server base url
-    - The "Repository Ingest API" endpoint via a POST to `/api/v1/repository-ingest` with the input data `{"repository_url": string}` , then returns the following data, to be added to the LangGraph long-term data store: ` {"ingested_repository: string, "technologies": [strings]}`
+    - The "Repository Ingest API" endpoint via a POST to `/api/v1/repository-ingest` with the input data `{"repository_url": string}` , then returns the following data, to be added to the long-term storage in the mongoDB `CodeAnalysis` collection: `{"ingested_repository: string, "technologies": [strings]}`
 - **Dependencies / Related Stories**:
     
     - Depends on the data from **Feature 1** (the submitted `repository_url`).
@@ -175,13 +182,13 @@ This feature covers how the system actually processes the analysis request via L
     - **Given** the Repository Ingest Node has completed successfully,
     - **When** the Architecture Documentation Node runs,
     - **Then** it must produce a markdown or structured text describing the architecture of the repository.
-    - **And** upon success, it stores the output in the **CodeAnalysis** `architecture_documentation` in long-term storage.
+    - **And** upon success, it stores the output in the **CodeAnalysis** `architecture_documentation` in the long-term storage in the mongoDB `CodeAnalysis` collection.
     - **And** the **CodeAnalysis** `status` is updated to `"COMPLETED"`.
 - **Detailed Architecture Design Notes**:
     
     - The node receives the repository data from the previous node.
-    - The node uses the LangGraph logic (prompting, LLM calls, or other steps) to create architecture documentation.  The input into the LLM calls will be the `{"ingested_repository: string, "technologies": [strings]}` from the previous step, as retrieved from the long-term store.
-    - Upon completion, the node updates the **CodeAnalysis** record’s `architecture_documentation` with the final documentation in markdown format and saves it into the long-term storage.
+    - The node uses the LangGraph logic (prompting, LLM calls, or other steps) to create architecture documentation.  The input into the LLM calls will be the `{"ingested_repository: string, "technologies": [strings]}` from the previous step, as retrieved from the long-term storage in the mongoDB `CodeAnalysis` collection.
+    - Upon completion, the node updates the **CodeAnalysis** record’s `architecture_documentation` with the final documentation in markdown format and saves it into the long-term storage in the mongoDB `CodeAnalysis` collection.
     - The node sets the **CodeAnalysis** `status` to `"COMPLETED"`.
 - **Dependencies / Related Stories**:
     
@@ -275,3 +282,4 @@ This feature covers how **CodeAnalysis** entities are stored, updated, and retri
     
     - Directly needed by **Feature 3** (LangGraph Workflow) to update statuses and store results.
     - Exposed by **Feature 2** (GET endpoint) to retrieve the final result.
+
