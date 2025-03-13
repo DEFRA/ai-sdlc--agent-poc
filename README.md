@@ -98,4 +98,4 @@ pytest
 
 ## Contributing
 
-[Contributing guidelines] 
+[Contributing guidelines]
