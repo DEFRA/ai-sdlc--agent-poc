@@ -37,6 +37,7 @@ This project demonstrates the integration of AI agents into the software develop
    ```bash
    pre-commit install
    ```
+   > **Important**: This step is required for pre-commit hooks to work. Without it, the hooks defined in `.pre-commit-config.yaml` won't run automatically before commits.
 
 ## Development
 

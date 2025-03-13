@@ -46,7 +46,7 @@ This module handles persistent storage for LangGraph where memory needs to persi
 ### Requirements & Setup
 - **Persistent Connection:** Use a MongoClient or AsyncMongoClient for a long-lived connection.
 - **Dedicated Collection:** Use a separate collection (e.g., `langgraph_longterm`) to store persistent memory documents.
-- **Schema & Indexing:** 
+- **Schema & Indexing:**
   - Documents should have a defined schema with identifiers (e.g., `memory_id`), timestamps, and memory content.
   - Create indexes on frequently queried fields (e.g., `memory_id`, `session_id`) to enhance performance.
 - **Write Strategies:** Utilize upsert operations (i.e., `update_one` with `upsert=True`) for atomic insert/update operations.
@@ -75,4 +75,3 @@ This module handles persistent storage for LangGraph where memory needs to persi
 - **Configuration Flexibility:** Allow configuration through environment variables or configuration files to set parameters like TTL, collection names, and connection strings.
 - **Clear Separation:** Keep the short term and long term memory modules logically separated while using similar design principles to ensure integration with LangGraph projects.
 - **Documentation:** Include inline comments and documentation to facilitate maintenance and future updates.
-

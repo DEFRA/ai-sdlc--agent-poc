@@ -10,31 +10,31 @@ Firstly, ensure you scan the entire testing patterns to determine if Mongo is al
 
 ## 1. **General Principles**
 
-- **Isolate Your Tests:**  
+- **Isolate Your Tests:**
   Always use mocks to replace real MongoDB connections, ensuring tests run in isolation and without side effects.
-  
-- **Use Dependency Injection:**  
+
+- **Use Dependency Injection:**
   Inject mocked repositories and services into your application (e.g., via FastAPI dependency overrides) to avoid accidental use of production code.
 
-- **Consistent Naming Conventions:**  
+- **Consistent Naming Conventions:**
   Name fixtures and mocks clearly (e.g., `mock_database_setup`, `setup_list_cursor`) to make it easy to trace their usage.
 
 ## 2. **Global Database Patching**
 
-- **Patch Key Entry Points:**  
+- **Patch Key Entry Points:**
   - Patch `init_database` to return a mocked database.
   - Replace the actual MongoDB client (`motor.motor_asyncio.AsyncIOMotorClient`) with a `MagicMock`.
   - Patch helper functions like `get_database` to ensure all database interactions use the mock.
 
-- **Ensure Complete Isolation:**  
+- **Ensure Complete Isolation:**
   Confirm that any code initializing a connection to MongoDB uses the patched versions so no live database is ever contacted during tests.
 
 ## 3. **Collection and Cursor Mocks**
 
-- **Asynchronous Collections:**  
+- **Asynchronous Collections:**
   Use `AsyncMock` for collection methods that perform async operations (e.g., `find`, `insert_one`).
 
-- **Cursor Chaining:**  
+- **Cursor Chaining:**
   When mocking cursor chains:
   - Make sure that methods such as `sort()` return the same cursor mock.
   - Example:
@@ -42,13 +42,13 @@ Firstly, ensure you scan the entire testing patterns to determine if Mongo is al
     mock_cursor.sort = MagicMock(return_value=mock_cursor)
     ```
 
-- **Property Patching:**  
+- **Property Patching:**
   Use `PropertyMock` to simulate attribute access (e.g., linking a collection's `.database` attribute to the mocked database):
   ```python
   type(collection).database = PropertyMock(return_value=mock_db)
   ```
 
-- **Dynamic Collection Resolution:**  
+- **Dynamic Collection Resolution:**
   If you have multiple collections, consider using a dictionary with a side_effect to route collection names correctly:
   ```python
   mock_db.get_collection = MagicMock(side_effect=lambda name: {
@@ -151,16 +151,16 @@ async def mock_collections():
     """Setup collections with relationships."""
     primary_collection = AsyncMock()
     related_collection = AsyncMock()
-    
+
     # Setup database relationship
     mock_db = AsyncMock()
     mock_db.get_collection = MagicMock(return_value=related_collection)
     type(primary_collection).database = PropertyMock(return_value=mock_db)
-    
+
     # Assign to database setup
     mock_database_setup.primary = primary_collection
     mock_database_setup.related = related_collection
-    
+
     return primary_collection, related_collection
 ```
 
@@ -183,11 +183,11 @@ Use a fixture to set up collection mocks:
 async def mock_collections():
     """Setup mock collections for tests."""
     collection = AsyncMock()
-    
+
     # Mock the database property for nested collections
     mock_db = AsyncMock()
     type(collection).database = PropertyMock(return_value=mock_db)
-    
+
     return collection
 ```
 

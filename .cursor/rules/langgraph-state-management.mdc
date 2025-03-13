@@ -19,7 +19,7 @@ alwaysApply: false
 ```python
 class GraphState(BaseModel):
     """Type definition for the graph state."""
-    
+
     field1: str
     field2: list
     field3: bool

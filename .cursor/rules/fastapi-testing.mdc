@@ -78,10 +78,10 @@ async def test_operation_scenario_expected(
     repo = Repository(collection)
     service = Service(mock_database_setup, repo)
     app.dependency_overrides[get_service] = lambda: service
-    
+
     # When: Action is performed
     response = await async_client...
-    
+
     # Then: Verify results
     assert response.status_code == status.HTTP_XXX_XXX
     data = response.json()
@@ -105,6 +105,6 @@ async def test_operation_scenario_expected(
 tests/
 ├── conftest.py   # Fixtures and configuration
 ├── integration/  # Integration tests
-├── unit/        # Unit tests   
+├── unit/        # Unit tests
 └── utils/       # Utility functions and test data
-``` 
+```

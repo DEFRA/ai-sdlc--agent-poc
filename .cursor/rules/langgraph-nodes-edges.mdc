@@ -16,20 +16,20 @@ alwaysApply: false
 def example_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Process input and update state.
-    
+
     Args:
         state: The current graph state
-        
+
     Returns:
         Updated state
     """
     logger.log_node_start("Node Name")
-    
+
     # Process input and generate output
     result = process_input(state)
-    
+
     logger.log_node_output("Node Name", result, "result_field")
-    
+
     # Return complete updated state
     return {
         "field1": result,
@@ -69,13 +69,13 @@ graph.add_conditional_edges(
 def create_graph() -> StateGraph:
     """Create the graph with nodes and edges."""
     graph = StateGraph(GraphState)
-    
+
     # Add nodes
     graph.add_node("node_name", node_function)
-    
+
     # Add edges
     graph.add_edge("source_node", "target_node")
-    
+
     # Add conditional edges
     graph.add_conditional_edges(
         "source_node",
@@ -86,9 +86,9 @@ def create_graph() -> StateGraph:
             "__end__": END,
         },
     )
-    
+
     # Set entry point
     graph.set_entry_point("entry_node")
-    
+
     return graph
 ```

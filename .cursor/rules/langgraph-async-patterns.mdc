@@ -29,14 +29,14 @@ async def concurrent_operations_node(state: AppState) -> AppState:
     async def operation1():
         await asyncio.sleep(0.2)
         return "Result 1"
-    
+
     # Run operations concurrently
     results = await asyncio.gather(
         operation1(),
         operation2(),
         operation3()
     )
-    
+
     # Update state with results
     return state.model_copy(update={"concurrent_results": results})
 ```
@@ -47,7 +47,7 @@ async def parallel_reasoning_node(state: AppState) -> AppState:
     """Performs parallel reasoning with an LLM."""
     query = state.input.query
     model_provider = ModelFactory.get_default_provider()
-    
+
     # Define parallel reasoning tasks
     async def summarize_query():
         messages = [
@@ -56,14 +56,14 @@ async def parallel_reasoning_node(state: AppState) -> AppState:
         ]
         response = await model_provider.chat(messages)
         return response.content
-    
+
     # Run reasoning tasks concurrently
     summary, entities, category = await asyncio.gather(
         summarize_query(),
         identify_entities(),
         categorize_query()
     )
-    
+
     # Update state with reasoning results
     return state.model_copy(update={
         "planning": PlanningState(
@@ -93,19 +93,19 @@ async def retry_async_operation(operation, max_retries=3, delay=0.5):
     """Retry an async operation with exponential backoff."""
     retries = 0
     last_exception = None
-    
+
     while retries <= max_retries:
         try:
             return await operation()
         except Exception as e:
             last_exception = e
             retries += 1
-            
+
             if retries <= max_retries:
                 await asyncio.sleep(delay * (2 ** (retries - 1)))
             else:
                 break
-    
+
     raise last_exception
 ```
 
@@ -140,7 +140,7 @@ async def stream_graph_execution(graph: StateGraph, query: str) -> AsyncGenerato
     """Stream graph execution, yielding states after each node."""
     initial_state = AppState(input=UserInput(query=query))
     streaming_graph = graph.astream()
-    
+
     async for state in streaming_graph.astream(initial_state):
         yield state
 
@@ -148,18 +148,18 @@ async def monitor_execution_progress(graph: StateGraph, query: str, progress_cal
     """Execute a graph with progress monitoring."""
     initial_state = AppState(input=UserInput(query=query))
     streaming_graph = graph.astream()
-    
+
     visited_nodes = set()
     total_nodes = len(graph.nodes)
-    
+
     final_state = None
     async for state in streaming_graph.astream(initial_state):
         if hasattr(state, 'current_node'):
             visited_nodes.add(state.current_node)
             progress = len(visited_nodes) / total_nodes
             await progress_callback(progress, state)
-        
+
         final_state = state
-    
+
     return final_state
 ```
