@@ -33,7 +33,7 @@ Below are the features and their corresponding user stories, providing both prod
 
 ---
 
-## FEATURE 1: **Create Code Analysis Request (POST /api/v1/code-analysis)**
+## FEATURE 1: **Create Code Analysis Request (POST /api/v1/code-analysis)** (✅ FEATURE COMPLETE)
 
 This feature covers the endpoint that receives a request to analyze a code repository and initiates the asynchronous workflow.
 
@@ -70,7 +70,8 @@ This feature covers the endpoint that receives a request to analyze a code repos
 
 ---
 
-## FEATURE 2: **Check Code Analysis Status and Retrieve Results (GET /api/v1/code-analysis/{id})**
+## FEATURE 2: **Check Code Analysis Status and Retrieve Results (GET /api/v1/code-analysis/{id})** (✅ FEATURE COMPLETE)
+
 
 This feature covers the endpoint that allows clients to retrieve the current status and final results of the analysis.
 
@@ -125,6 +126,40 @@ This feature covers the endpoint that allows clients to retrieve the current sta
 - **Dependencies / Related Stories**:
 
     - Depends on **Feature 4** (Data Storage) for checking existence of the **CodeAnalysis** document.
+
+### Story 2.3: **List All Code Analysis Records**
+
+- **Story Type**: Backend API
+
+- **Story**:
+    **As a** developer or service client,
+    **I want** to retrieve a list of all code analysis records,
+    **so that** I can monitor all analysis requests and their statuses.
+
+- **Design/UX Considerations**:
+
+    - The endpoint should return all code analysis records in a single response.
+    - Basic filtering capabilities should be provided to allow filtering by status.
+
+- **Testable Acceptance Criteria** (BDD):
+
+    - **Given** there are code analysis records in the database,
+    - **When** the client sends a `GET /api/v1/code-analysis` request,
+    - **Then** the server **must** respond with a JSON array containing all the code analysis records.
+    - **When** the client provides query parameters for filtering (e.g., `status`),
+    - **Then** the response should only include records matching the specified criteria.
+
+- **Detailed Architecture Design Notes**:
+
+    - The endpoint uses the same data model and service layer as the individual record retrieval.
+    - Sorting should be implemented to display records in a consistent order (most recent first).
+    - Optional query parameters should be supported for filtering results.
+
+- **Dependencies / Related Stories**:
+
+    - Depends on **Feature 4** (Data Storage) for retrieving the **CodeAnalysis** documents.
+    - Relates to **Feature 2** (Status and Results retrieval) as it provides a broader view of all analyses.
+
 
 ---
 
@@ -223,42 +258,10 @@ This feature covers how the system actually processes the analysis request via L
     - Depends on **Feature 1** for the initial trigger.
     - Involves **Story 3.1** and **Story 3.2** for the actual node logic.
 
-### Story 3.4: **List All Code Analysis Records**
-
-- **Story Type**: Backend API
-
-- **Story**:
-    **As a** developer or service client,
-    **I want** to retrieve a list of all code analysis records,
-    **so that** I can monitor all analysis requests and their statuses.
-
-- **Design/UX Considerations**:
-
-    - The endpoint should return all code analysis records in a single response.
-    - Basic filtering capabilities should be provided to allow filtering by status.
-
-- **Testable Acceptance Criteria** (BDD):
-
-    - **Given** there are code analysis records in the database,
-    - **When** the client sends a `GET /api/v1/code-analysis` request,
-    - **Then** the server **must** respond with a JSON array containing all the code analysis records.
-    - **When** the client provides query parameters for filtering (e.g., `status`),
-    - **Then** the response should only include records matching the specified criteria.
-
-- **Detailed Architecture Design Notes**:
-
-    - The endpoint uses the same data model and service layer as the individual record retrieval.
-    - Sorting should be implemented to display records in a consistent order (most recent first).
-    - Optional query parameters should be supported for filtering results.
-
-- **Dependencies / Related Stories**:
-
-    - Depends on **Feature 4** (Data Storage) for retrieving the **CodeAnalysis** documents.
-    - Relates to **Feature 2** (Status and Results retrieval) as it provides a broader view of all analyses.
-
 ---
 
-## FEATURE 4: **Data Storage and Persistence**
+## FEATURE 4: **Data Storage and Persistence** (✅ FEATURE COMPLETE)
+
 
 This feature covers how **CodeAnalysis** entities are stored, updated, and retrieved from MongoDB.
 
