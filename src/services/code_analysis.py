@@ -1,10 +1,12 @@
 """Code analysis service module."""
 
+import asyncio
 import logging
 from typing import Optional
 
 from bson.errors import InvalidId
 
+from src.agents.code_analysis_graph import run_code_analysis_workflow
 from src.models.code_analysis import (
     CodeAnalysisCreate,
     CodeAnalysisInDB,
@@ -36,10 +38,55 @@ class CodeAnalysisService:
                 status=CodeAnalysisStatus.IN_PROGRESS,
             )
 
-            return await code_analysis_repository.create(code_analysis_create)
+            # Create the code analysis in the database
+            code_analysis = await code_analysis_repository.create(code_analysis_create)
+
+            # Trigger the LangGraph workflow asynchronously
+            asyncio.create_task(
+                self._run_analysis_workflow(code_analysis.id, repository_url)
+            )
+
+            return code_analysis
         except Exception as e:
             logger.error("Error creating code analysis: %s", e)
             raise
+
+    async def _run_analysis_workflow(
+        self, analysis_id: str, repository_url: str
+    ) -> None:
+        """
+        Run the code analysis workflow asynchronously.
+
+        This method is called after creating a code analysis document.
+        It runs the LangGraph workflow to analyze the repository.
+
+        Args:
+            analysis_id: The ID of the code analysis document.
+            repository_url: The URL of the repository to analyze.
+        """
+        logger.info("Starting code analysis workflow for analysis ID: %s", analysis_id)
+
+        try:
+            # Run the LangGraph workflow
+            await run_code_analysis_workflow(repository_url, analysis_id)
+
+            logger.info(
+                "Code analysis workflow completed for analysis ID: %s", analysis_id
+            )
+        except Exception as e:
+            logger.error("Error running code analysis workflow: %s", e)
+
+            # Update the code analysis status to ERROR
+            try:
+                update_data = CodeAnalysisUpdate(
+                    status=CodeAnalysisStatus.ERROR,
+                )
+                await code_analysis_repository.update(analysis_id, update_data)
+            except Exception as update_error:
+                logger.error(
+                    "Error updating code analysis status after workflow failure: %s",
+                    update_error,
+                )
 
     async def get_code_analysis(self, analysis_id: str) -> Optional[CodeAnalysisInDB]:
         """

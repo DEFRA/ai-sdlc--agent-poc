@@ -8,3 +8,7 @@ python-dotenv
 httpx
 langgraph
 langchain
+langchain-anthropic
+langchain-core
+aiohttp
+langgraph-checkpoint-mongodb

@@ -183,7 +183,7 @@ This feature covers how the system actually processes the analysis request via L
 
     - **Given** a newly created **CodeAnalysis** document with `status` = `"IN_PROGRESS"`,
     - **When** the asynchronous workflow begins,
-    - **Then** the Repository Ingest Node must successfully call the external "Repository Ingest API" endpoint via a POST to `/api/v1/repository-ingest`
+    - **Then** the Repository Ingest Node must successfully call the external "Repository Ingest API" endpoint via a POST to `/api/v1/repo-ingest`
     - **And** upon success, the node must update the long-term storage in the mongoDB `CodeAnalysis` collection with the result.
     - **And** the workflow transitions to the next node.
     - **And** if there is a failure, the system updates the **CodeAnalysis** `status` = `"ERROR"`.
@@ -194,7 +194,7 @@ This feature covers how the system actually processes the analysis request via L
     - This node calls the "Repository Ingest API" to perform the actual ingestion.
     - Upon successful ingestion, the node outputs the repository data to be consumed by the next node.
     - We need to add an .env variable for the "Repository Ingest API" server base url
-    - The "Repository Ingest API" endpoint via a POST to `/api/v1/repository-ingest` with the input data `{"repository_url": string}` , then returns the following data, to be added to the long-term storage in the mongoDB `CodeAnalysis` collection: `{"ingested_repository: string, "technologies": [strings]}`
+    - The "Repository Ingest API" endpoint via a POST to `/api/v1/repo-ingest` with the input data `{"repository_url": string}` , then returns the following data, to be added to the long-term storage in the mongoDB `CodeAnalysis` collection: `{"ingested_repository: string, "technologies": [strings]}`
 - **Dependencies / Related Stories**:
 
     - Depends on the data from **Feature 1** (the submitted `repository_url`).

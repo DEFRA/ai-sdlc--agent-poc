@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Repository Ingest API
     REPOSITORY_INGEST_API_URL: Optional[str] = os.getenv("REPOSITORY_INGEST_API_URL")
 
+    # LLM API Keys
+    ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
+
     # Application settings
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
