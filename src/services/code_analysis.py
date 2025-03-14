@@ -3,6 +3,8 @@
 import logging
 from typing import Optional
 
+from bson.errors import InvalidId
+
 from src.models.code_analysis import (
     CodeAnalysisCreate,
     CodeAnalysisInDB,
@@ -48,9 +50,15 @@ class CodeAnalysisService:
 
         Returns:
             The code analysis if found, None otherwise.
+
+        Raises:
+            InvalidId: If the analysis_id is not a valid ObjectId.
         """
         try:
             return await code_analysis_repository.get(analysis_id)
+        except InvalidId:
+            # Re-raise the exception so it can be handled properly in the API layer
+            raise
         except Exception as e:
             logger.error(
                 "Error retrieving code analysis with ID %s: %s", analysis_id, e
@@ -74,6 +82,30 @@ class CodeAnalysisService:
             return await code_analysis_repository.update(analysis_id, obj_in)
         except Exception as e:
             logger.error("Error updating code analysis with ID %s: %s", analysis_id, e)
+            raise
+
+    async def list_code_analyses(
+        self,
+        status: Optional[CodeAnalysisStatus] = None,
+    ) -> list[CodeAnalysisInDB]:
+        """
+        List code analyses with optional filtering.
+
+        Args:
+            status: Optional status filter
+
+        Returns:
+            List of code analyses matching the criteria
+        """
+        try:
+            # Create filter dict based on provided parameters
+            filters = {}
+            if status:
+                filters["status"] = status
+
+            return await code_analysis_repository.list(filters=filters)
+        except Exception as e:
+            logger.error("Error listing code analyses: %s", e)
             raise
 
 

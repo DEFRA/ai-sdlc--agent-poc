@@ -1,11 +1,17 @@
 """Code analysis API endpoints."""
 
 import logging
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status
+from bson.errors import InvalidId
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import ValidationError
 
-from src.models.code_analysis import CodeAnalysisRequest, CodeAnalysisResponse
+from src.models.code_analysis import (
+    CodeAnalysisRequest,
+    CodeAnalysisResponse,
+    CodeAnalysisStatus,
+)
 from src.services.code_analysis import code_analysis_service
 
 router = APIRouter(prefix="/code-analysis", tags=["code-analysis"])
@@ -95,9 +101,64 @@ async def get_code_analysis(analysis_id: str) -> CodeAnalysisResponse:
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
+    except InvalidId as e:
+        # Handle invalid ObjectId format specifically with a 404 error
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Code analysis with ID {analysis_id} not found",
+        ) from e
     except Exception as e:
         logger.error("Error retrieving code analysis with ID %s: %s", analysis_id, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving the code analysis with ID {analysis_id}",
+        ) from e
+
+
+@router.get(
+    "",
+    response_model=list[CodeAnalysisResponse],
+    summary="List all code analysis records",
+    description="Retrieves a list of all code analysis records with optional filtering",
+)
+async def list_code_analyses(
+    status: Optional[CodeAnalysisStatus] = Query(
+        None, description="Filter by status (IN_PROGRESS, COMPLETED, ERROR)"
+    ),
+) -> list[CodeAnalysisResponse]:
+    """
+    List all code analysis records with optional filtering.
+
+    Args:
+        status: Optional filter by status (IN_PROGRESS, COMPLETED, ERROR)
+
+    Returns:
+        List of code analysis records
+
+    Raises:
+        HTTPException: If there's an error retrieving the code analyses
+    """
+    try:
+        # Get all code analyses from the service with filters
+        code_analyses = await code_analysis_service.list_code_analyses(status=status)
+
+        # Convert models to response models
+        return [
+            CodeAnalysisResponse(
+                id=code_analysis.id,
+                repository_url=code_analysis.repository_url,
+                status=code_analysis.status,
+                architecture_documentation=code_analysis.architecture_documentation,
+                ingested_repository=code_analysis.ingested_repository,
+                technologies=code_analysis.technologies,
+                created_at=code_analysis.created_at,
+                updated_at=code_analysis.updated_at,
+            )
+            for code_analysis in code_analyses
+        ]
+    except Exception as e:
+        logger.error("Error retrieving code analyses: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while retrieving code analyses",
         ) from e

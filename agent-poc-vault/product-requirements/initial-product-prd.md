@@ -188,7 +188,7 @@ This feature covers how the system actually processes the analysis request via L
 
     - The node receives the repository data from the previous node.
     - The node uses the LangGraph logic (prompting, LLM calls, or other steps) to create architecture documentation.  The input into the LLM calls will be the `{"ingested_repository: string, "technologies": [strings]}` from the previous step, as retrieved from the long-term storage in the mongoDB `CodeAnalysis` collection.
-    - Upon completion, the node updates the **CodeAnalysis** record’s `architecture_documentation` with the final documentation in markdown format and saves it into the long-term storage in the mongoDB `CodeAnalysis` collection.
+    - Upon completion, the node updates the **CodeAnalysis** record's `architecture_documentation` with the final documentation in markdown format and saves it into the long-term storage in the mongoDB `CodeAnalysis` collection.
     - The node sets the **CodeAnalysis** `status` to `"COMPLETED"`.
 - **Dependencies / Related Stories**:
 
@@ -222,6 +222,39 @@ This feature covers how the system actually processes the analysis request via L
 
     - Depends on **Feature 1** for the initial trigger.
     - Involves **Story 3.1** and **Story 3.2** for the actual node logic.
+
+### Story 3.4: **List All Code Analysis Records**
+
+- **Story Type**: Backend API
+
+- **Story**:
+    **As a** developer or service client,
+    **I want** to retrieve a list of all code analysis records,
+    **so that** I can monitor all analysis requests and their statuses.
+
+- **Design/UX Considerations**:
+
+    - The endpoint should return all code analysis records in a single response.
+    - Basic filtering capabilities should be provided to allow filtering by status.
+
+- **Testable Acceptance Criteria** (BDD):
+
+    - **Given** there are code analysis records in the database,
+    - **When** the client sends a `GET /api/v1/code-analysis` request,
+    - **Then** the server **must** respond with a JSON array containing all the code analysis records.
+    - **When** the client provides query parameters for filtering (e.g., `status`),
+    - **Then** the response should only include records matching the specified criteria.
+
+- **Detailed Architecture Design Notes**:
+
+    - The endpoint uses the same data model and service layer as the individual record retrieval.
+    - Sorting should be implemented to display records in a consistent order (most recent first).
+    - Optional query parameters should be supported for filtering results.
+
+- **Dependencies / Related Stories**:
+
+    - Depends on **Feature 4** (Data Storage) for retrieving the **CodeAnalysis** documents.
+    - Relates to **Feature 2** (Status and Results retrieval) as it provides a broader view of all analyses.
 
 ---
 

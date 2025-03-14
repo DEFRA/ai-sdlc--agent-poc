@@ -1,9 +1,10 @@
 """Code analysis repository module."""
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from bson import ObjectId
+from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from src.database.mongodb import COLLECTION_CODE_ANALYSIS, MongoDB
@@ -68,6 +69,9 @@ class CodeAnalysisRepository:
 
         Returns:
             The code analysis document if found, None otherwise.
+
+        Raises:
+            InvalidId: If the analysis_id is not a valid ObjectId.
         """
         collection = self._get_collection()
         try:
@@ -75,6 +79,12 @@ class CodeAnalysisRepository:
             if result:
                 return self._map_db_to_model(result)
             return None
+        except InvalidId as e:
+            logger.error(
+                "Invalid ObjectId format for analysis_id %s: %s", analysis_id, e
+            )
+            # Re-raise the exception so it can be handled properly in the API layer
+            raise
         except Exception as e:
             logger.error(
                 "Error retrieving code analysis with ID %s: %s", analysis_id, e
@@ -114,6 +124,37 @@ class CodeAnalysisRepository:
             return await self.get(analysis_id)
         except Exception as e:
             logger.error("Error updating code analysis with ID %s: %s", analysis_id, e)
+            raise
+
+    async def list(
+        self,
+        filters: dict[str, Any] = None,
+    ) -> list[CodeAnalysisInDB]:
+        """
+        List code analysis documents with filtering.
+
+        Args:
+            filters: Optional dictionary of filter conditions
+
+        Returns:
+            List of code analysis documents matching the criteria
+        """
+        collection = self._get_collection()
+
+        # Use empty dict if no filters provided
+        query_filters = filters or {}
+
+        try:
+            # Sort by creation date descending (newest first)
+            cursor = collection.find(query_filters).sort("created_at", -1)
+
+            # Convert cursor to list of documents
+            documents = await cursor.to_list(length=None)
+
+            # Map documents to model objects
+            return [self._map_db_to_model(doc) for doc in documents]
+        except Exception as e:
+            logger.error("Error listing code analyses: %s", e)
             raise
 
 
