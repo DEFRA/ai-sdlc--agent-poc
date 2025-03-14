@@ -178,3 +178,6 @@ agent-poc-vault/.obsidian/workspace.json
 
 # cursor
 .cursor/.DS_Store
+
+# Environment variables
+.env

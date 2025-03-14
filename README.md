@@ -1,25 +1,25 @@
-# AI SDLC - Agent POC
+# Code Analysis API
 
-A proof of concept for AI agents in the software development lifecycle.
+A Python FastAPI application that provides a wrapper around a LangGraph workflow for analyzing code repositories.
 
-## Overview
+## Features
 
-This project demonstrates the integration of AI agents into the software development lifecycle to automate and enhance various aspects of development workflows.
+- Submit repository URLs for code analysis
+- Retrieve the status and results of code analysis
+- Asynchronous processing using LangGraph workflow
 
-## Setup
-
-### Prerequisites
+## Requirements
 
 - Python 3.9+
-- pip
-- virtualenv (recommended)
+- MongoDB (can be run with Docker Compose)
+- Docker and Docker Compose (optional, for running MongoDB)
 
-### Installation
+## Setup
 
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd ai-sdlc--agent-poc
+   cd <repository-directory>
    ```
 
 2. Create and activate a virtual environment:
@@ -30,73 +30,121 @@ This project demonstrates the integration of AI agents into the software develop
 
 3. Install dependencies:
    ```bash
-   pip install -r requirements-dev.txt  # For development
+   pip install -r requirements.txt
    ```
 
-4. Install pre-commit hooks:
+4. Configure the environment:
    ```bash
-   pre-commit install
+   cp .env.example .env
+   # Edit .env with your specific configuration
    ```
-   > **Important**: This step is required for pre-commit hooks to work. Without it, the hooks defined in `.pre-commit-config.yaml` won't run automatically before commits.
 
-## Development
+### Setting up MongoDB with Docker Compose
 
-### Code Quality
+For development, you can use Docker Compose to run MongoDB:
 
-This project uses several tools to maintain code quality:
+1. Start MongoDB:
+   ```bash
+   docker-compose up -d
+   ```
 
-#### Ruff - Linting & Formatting
+   This will:
+   - Start MongoDB on port 27018 (instead of the default 27017)
+   - Set up authentication with a root user
+   - Run a Python script to initialize the database with the necessary user, collection, and indexes
 
-The project is configured with `.ruff.toml` that:
+2. Verify MongoDB is running and initialized:
+   ```bash
+   python verify_mongodb.py
+   ```
 
-To run Ruff:
+The application will automatically read the configuration from your `.env` file.
 
-```bash
-# Check your code with Ruff
-ruff check .
+### Manual MongoDB Setup
 
-# Automatically fix issues where possible
-ruff check --fix .
+If you prefer to use an existing MongoDB instance:
 
-# Format your code with Ruff
-ruff format .
-```
+1. Configure your `.env` file with the appropriate MongoDB connection details
 
-#### Pre-commit Hooks
+2. Run the MongoDB initialization script:
+   ```bash
+   python mongo_init.py
+   ```
 
-[pre-commit](https://pre-commit.com/) is a framework for managing and maintaining pre-commit hooks.
+3. Verify MongoDB is correctly configured:
+   ```bash
+   python verify_mongodb.py
+   ```
 
-The project includes a `.pre-commit-config.yaml` configuration that:
+## Running the Application
 
-1. Runs Ruff for linting and formatting
-2. Applies common file hygiene hooks:
-   - Removes trailing whitespace
-   - Ensures files end with a newline
-   - Validates YAML and TOML files
-   - Prevents committing large files
-3. Runs pytest to ensure all tests pass before committing
-
-To use pre-commit:
-
-```bash
-# Run pre-commit on all files
-pre-commit run --all-files
-
-# The hooks will also run automatically on git commit
-```
-
-## Testing
-
-Run tests with pytest:
+Start the FastAPI application:
 
 ```bash
-pytest
+uvicorn src.main:app --reload
 ```
 
-## License
+The API will be available at http://127.0.0.1:8000.
 
-[License details]
+## API Documentation
 
-## Contributing
+Once the application is running, you can access the interactive API documentation at:
 
-[Contributing guidelines]
+- Swagger UI: http://127.0.0.1:8000/docs
+- ReDoc: http://127.0.0.1:8000/redoc
+
+## API Endpoints
+
+### Create Code Analysis
+
+```
+POST /api/v1/code-analysis
+```
+
+Request body:
+```json
+{
+  "repository_url": "https://github.com/username/repository"
+}
+```
+
+Response:
+```json
+{
+  "_id": "60f7b5e42c3a8f001a123456"
+}
+```
+
+### Get Code Analysis
+
+```
+GET /api/v1/code-analysis/{id}
+```
+
+Response:
+```json
+{
+  "id": "60f7b5e42c3a8f001a123456",
+  "repository_url": "https://github.com/username/repository",
+  "status": "IN_PROGRESS",
+  "architecture_documentation": null,
+  "ingested_repository": null,
+  "technologies": null,
+  "created_at": "2023-07-21T10:30:00.000Z",
+  "updated_at": "2023-07-21T10:30:00.000Z"
+}
+```
+
+## Project Structure
+
+```
+src/
+├── api/v1/          # Routing and HTTP endpoints
+├── services/        # Business logic
+├── repositories/    # Data access
+├── agents/          # LangGraph AI agents
+├── utils/           # Utility functions
+├── config/          # Configuration
+├── database/        # Database operations
+└── models/          # Data models
+```
