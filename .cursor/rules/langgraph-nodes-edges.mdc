@@ -61,34 +61,39 @@ graph.add_conditional_edges(
 ### Graph Definition
 
 - Create graphs using the `StateGraph` class
+- Always include START and END nodes from LangGraph
 - Define nodes, edges, and conditional edges explicitly
 - Set a clear entry point
 - Use descriptive names for nodes and edge conditions
 
 ```python
+from langgraph.graph import START, END, StateGraph
+
 def create_graph() -> StateGraph:
     """Create the graph with nodes and edges."""
+    # Create the graph with state type
     graph = StateGraph(GraphState)
 
     # Add nodes
     graph.add_node("node_name", node_function)
+    graph.add_node("process_data", process_data_node)
 
-    # Add edges
-    graph.add_edge("source_node", "target_node")
+    # Add edges starting from START
+    graph.add_edge(START, "node_name")
+    graph.add_edge("node_name", "process_data")
 
-    # Add conditional edges
+    # Add conditional edges that may lead to END
     graph.add_conditional_edges(
-        "source_node",
+        "process_data",
         condition_function,
         {
-            "condition_result_1": "target_node_1",
-            "condition_result_2": "target_node_2",
-            "__end__": END,
+            "continue": "next_node",
+            "__end__": END,  # Use END for terminal states
         },
     )
 
-    # Set entry point
-    graph.set_entry_point("entry_node")
+    # Set entry point (first node after START)
+    graph.set_entry_point("node_name")
 
     return graph
 ```
