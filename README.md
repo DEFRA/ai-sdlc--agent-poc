@@ -135,6 +135,33 @@ Response:
 }
 ```
 
+## Graph Visualizations
+
+This section contains automatically generated visualizations of the LangGraph workflows in this project.
+
+
+### create_code_analysis_graph
+
+# Graph: create_code_analysis_graph
+
+```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	repository_ingest(repository_ingest)
+	generate_architecture_doc(generate_architecture_doc)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> repository_ingest;
+	generate_architecture_doc --> __end__;
+	repository_ingest --> generate_architecture_doc;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+
+```
+
+
+
 ## Project Structure
 
 ```

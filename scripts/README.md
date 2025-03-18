@@ -145,4 +145,4 @@ When contributing new scripts:
 2. Add the script and update this README
 3. Add tests if applicable
 4. Submit a pull request
-5. Update documentation as needed 
+5. Update documentation as needed

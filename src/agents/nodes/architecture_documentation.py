@@ -15,13 +15,12 @@ logger = logging.getLogger(__name__)
 # Template for generating architecture documentation
 ARCHITECTURE_DOCUMENTATION_TEMPLATE = """
 You are an expert software architect tasked with documenting the architecture of a codebase.
-You have been provided with information about the repository and the technologies used.
 
-Repository Information:
+You have been provided with information about the repository in the <repository_information> tag.
+
+<repository_information>
 {ingested_repository}
-
-Technologies Used:
-{technologies}
+</repository_information>
 
 Based on this information, generate a comprehensive architecture document that includes:
 
@@ -85,7 +84,6 @@ async def architecture_documentation_node(
         model = ChatAnthropic(
             model="claude-3-sonnet-20240229",
             temperature=0,
-            max_tokens=4000,
             anthropic_api_key=settings.ANTHROPIC_API_KEY,
         )
 

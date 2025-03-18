@@ -2,7 +2,7 @@
 
 import logging
 
-from langgraph.graph import StateGraph
+from langgraph.graph import END, START, StateGraph
 
 from src.agents.nodes.architecture_documentation import architecture_documentation_node
 from src.agents.nodes.repository_ingest import repository_ingest_node
@@ -24,9 +24,10 @@ def create_code_analysis_graph() -> StateGraph:
     # Add nodes to the graph
     graph.add_node("repository_ingest", repository_ingest_node)
     graph.add_node("generate_architecture_doc", architecture_documentation_node)
-
     # Add edges between nodes
+    graph.add_edge(START, "repository_ingest")
     graph.add_edge("repository_ingest", "generate_architecture_doc")
+    graph.add_edge("generate_architecture_doc", END)
 
     # Set the entry point
     graph.set_entry_point("repository_ingest")
