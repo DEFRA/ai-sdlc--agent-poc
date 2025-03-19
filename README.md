@@ -149,11 +149,13 @@ This section contains automatically generated visualizations of the LangGraph wo
 graph TD;
 	__start__([<p>__start__</p>]):::first
 	repository_ingest(repository_ingest)
-	generate_architecture_doc(generate_architecture_doc)
+	identify_data_models(identify_data_models)
+	analyze_data_models(analyze_data_models)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> repository_ingest;
-	generate_architecture_doc --> __end__;
-	repository_ingest --> generate_architecture_doc;
+	analyze_data_models --> __end__;
+	identify_data_models --> analyze_data_models;
+	repository_ingest --> identify_data_models;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc

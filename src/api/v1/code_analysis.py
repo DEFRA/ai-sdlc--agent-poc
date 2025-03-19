@@ -95,6 +95,8 @@ async def get_code_analysis(analysis_id: str) -> CodeAnalysisResponse:
             architecture_documentation=code_analysis.architecture_documentation,
             ingested_repository=code_analysis.ingested_repository,
             technologies=code_analysis.technologies,
+            data_model_files=code_analysis.data_model_files,
+            data_model_analysis=code_analysis.data_model_analysis,
             created_at=code_analysis.created_at,
             updated_at=code_analysis.updated_at,
         )
@@ -151,6 +153,8 @@ async def list_code_analyses(
                 architecture_documentation=code_analysis.architecture_documentation,
                 ingested_repository=code_analysis.ingested_repository,
                 technologies=code_analysis.technologies,
+                data_model_files=code_analysis.data_model_files,
+                data_model_analysis=code_analysis.data_model_analysis,
                 created_at=code_analysis.created_at,
                 updated_at=code_analysis.updated_at,
             )

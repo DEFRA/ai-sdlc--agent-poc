@@ -4,7 +4,8 @@ import logging
 
 from langgraph.graph import END, START, StateGraph
 
-from src.agents.nodes.architecture_documentation import architecture_documentation_node
+from src.agents.nodes.data_model_analysis import data_model_analysis_node
+from src.agents.nodes.data_model_identification import data_model_identification_node
 from src.agents.nodes.repository_ingest import repository_ingest_node
 from src.agents.states.code_analysis_state import CodeAnalysisState
 
@@ -23,11 +24,18 @@ def create_code_analysis_graph() -> StateGraph:
 
     # Add nodes to the graph
     graph.add_node("repository_ingest", repository_ingest_node)
-    graph.add_node("generate_architecture_doc", architecture_documentation_node)
+    graph.add_node("identify_data_models", data_model_identification_node)
+    graph.add_node("analyze_data_models", data_model_analysis_node)
+    # omitting while testing other steps in the graph
+    # graph.add_node("generate_architecture_doc", architecture_documentation_node)
+
     # Add edges between nodes
     graph.add_edge(START, "repository_ingest")
-    graph.add_edge("repository_ingest", "generate_architecture_doc")
-    graph.add_edge("generate_architecture_doc", END)
+    graph.add_edge("repository_ingest", "identify_data_models")
+    graph.add_edge("identify_data_models", "analyze_data_models")
+    # omitting while testing other steps in the graph
+    # graph.add_edge("analyze_data_models", "generate_architecture_doc")
+    graph.add_edge("analyze_data_models", END)
 
     # Set the entry point
     graph.set_entry_point("repository_ingest")

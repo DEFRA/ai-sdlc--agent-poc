@@ -29,6 +29,14 @@ class CodeAnalysisState(BaseModel):
         default=None, description="List of technologies used in the repository"
     )
 
+    # Data Model Analysis
+    data_model_files: Optional[list[str]] = Field(
+        default=None, description="List of identified data model files"
+    )
+    data_model_analysis: Optional[str] = Field(
+        default=None, description="Generated data model analysis with ERD"
+    )
+
     # Output
     architecture_documentation: Optional[str] = Field(
         default=None, description="Generated architecture documentation"
