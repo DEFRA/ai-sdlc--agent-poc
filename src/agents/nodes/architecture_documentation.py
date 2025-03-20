@@ -82,7 +82,7 @@ async def architecture_documentation_node(
 
         # Initialize the language model
         model = ChatAnthropic(
-            model="claude-3-sonnet-20240229",
+            model="claude-3-7-sonnet-20250219",
             temperature=0,
             anthropic_api_key=settings.ANTHROPIC_API_KEY,
         )
