@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 
 from src.agents.states.code_analysis_state import CodeAnalysisState
 from src.config.settings import settings
@@ -12,6 +13,16 @@ from src.models.code_analysis import CodeAnalysisStatus, CodeAnalysisUpdate
 from src.repositories.code_analysis import code_analysis_repository
 
 logger = logging.getLogger(__name__)
+
+
+# Define Pydantic model for structured output
+class DataModelFiles(BaseModel):
+    """Structure for data model files identified in the repository."""
+
+    files: list[str] = Field(
+        description="List of file paths that contain data models, schemas, or data persistence logic"
+    )
+
 
 # Template for identifying data model files
 DATA_MODEL_IDENTIFICATION_TEMPLATE = """
@@ -28,8 +39,7 @@ Analyze the repository content and identify all files that:
 2. Handle data persistence (database operations, ORM mappings)
 3. Expose data models via external interfaces (API endpoints, GraphQL schemas)
 
-Return ONLY the file paths, one per line. Do not include any explanations or additional text.
-Each line should be a valid file path from the repository.
+Return a list of file paths. Each path should be a valid file path from the repository.
 """
 
 
@@ -82,25 +92,26 @@ async def data_model_identification_node(
         # Create prompt
         prompt = ChatPromptTemplate.from_template(DATA_MODEL_IDENTIFICATION_TEMPLATE)
 
-        # Initialize the language model
+        # Initialize the language model with structured output
         model = ChatAnthropic(
             model="claude-3-sonnet-20240229",
             temperature=0,
             anthropic_api_key=settings.ANTHROPIC_API_KEY,
         )
 
+        # Configure the model to return structured output
+        structured_model = model.with_structured_output(DataModelFiles)
+
         # Prepare messages
         messages = prompt.format_messages(
             ingested_repository=state.ingested_repository,
         )
 
-        # Generate file list
-        response = await model.ainvoke(messages)
+        # Generate structured response
+        structured_response = await structured_model.ainvoke(messages)
 
-        # Parse response into list of files
-        data_model_files = [
-            file.strip() for file in response.content.split("\n") if file.strip()
-        ]
+        # Extract file list from structured response
+        data_model_files = structured_response.files
 
         # Update state with identified files and timestamp
         state.data_model_files = data_model_files
