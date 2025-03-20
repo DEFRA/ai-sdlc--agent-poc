@@ -1,8 +1,8 @@
-"""React Agents package for LangGraph workflows."""
+"""React agents module."""
 
-from src.agents.react_agents.data_model_agent import (
-    create_data_model_agent,
-    run_data_model_agent,
+from src.agents.react_agents.analysis_agent import (
+    create_analysis_agent,
+    run_analysis_agent,
 )
 
-__all__ = ["create_data_model_agent", "run_data_model_agent"]
+__all__ = ["create_analysis_agent", "run_analysis_agent"]

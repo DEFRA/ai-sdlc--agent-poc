@@ -1,183 +1,64 @@
 """Data Model Analysis Node for the code analysis workflow."""
 
-import json
 import logging
-from datetime import datetime, timezone
 
-from src.agents.react_agents.data_model_agent import (
-    create_data_model_agent,
-    run_data_model_agent,
-)
-from src.agents.states.code_analysis_state import CodeAnalysisState
-from src.models.code_analysis import CodeAnalysisStatus, CodeAnalysisUpdate
-from src.repositories.code_analysis import code_analysis_repository
+from src.agents.nodes.analysis_node_factory import create_analysis_node
 
 logger = logging.getLogger(__name__)
 
-# Create the ReAct agent at module level
-try:
-    data_model_agent = create_data_model_agent()
-except Exception as e:
-    logger.error("Failed to initialize Data Model Analysis agent: %s", e)
-    data_model_agent = None
+# System message for the data model analysis agent
+DATA_MODEL_ANALYSIS_SYSTEM_MESSAGE = """
+You are an data architect tasked with analyzing data models in a codebase.
 
+You have been provided with a list of data model related files that you need to analyze.
+You should use the retrieve_files tool to get the content of these files.
+"""
 
-async def data_model_analysis_node(
-    state: CodeAnalysisState,
-) -> CodeAnalysisState:
-    """
-    Data Model Analysis Node for the code analysis workflow.
+# Template for data model analysis prompt
+DATA_MODEL_ANALYSIS_PROMPT = """
+Analyze the data models in the following files from repository {repository_url}:
 
-    This node uses a ReAct agent to analyze the identified data model files and generate
-    a comprehensive report including an ERD diagram in mermaid format.
+Files: {file_list}
 
-    Args:
-        state: The current state of the workflow.
+---
 
-    Returns:
-        Updated state with data model analysis report.
-    """
-    logger.info(
-        "Starting Data Model Analysis Node for repository: %s",
-        state.repository_url,
-    )
+Once you have the file contents, generate a comprehensive data model analysis document that includes:
 
-    # Check if we have the required data
-    if not state.data_model_files:
-        state.status = CodeAnalysisStatus.ERROR
-        state.error = "No data model files identified for analysis"
+1. Overview of the Data Architecture
+   - High-level description of the data model
+   - Key entities and their purposes
+   - Data persistence approach
 
-        # Update the database record
-        if state.analysis_id:
-            # Get current state from database to preserve other fields
-            current_doc = await code_analysis_repository.get(state.analysis_id)
-            update_data = CodeAnalysisUpdate(
-                status=CodeAnalysisStatus.ERROR,
-                error=state.error,
-                updated_at=datetime.now(timezone.utc),
-                # Preserve existing fields
-                data_model_files=current_doc.data_model_files if current_doc else None,
-                data_model_analysis=current_doc.data_model_analysis
-                if current_doc
-                else None,
-            )
-            await code_analysis_repository.update(state.analysis_id, update_data)
+2. Logical Data Model
+   - Detailed description of each entity
+   - Attributes and their types
+   - Relationships between entities
 
-        return state
+3. Entity Relationship Diagram
+   - Create a mermaid.js ERD diagram showing all entities and their relationships
+   - Use proper mermaid.js ERD syntax
+   - Include cardinality in relationships
 
-    # Check if agent was initialized properly
-    if data_model_agent is None:
-        state.status = CodeAnalysisStatus.ERROR
-        state.error = "Data Model Analysis agent was not initialized properly"
+4. Implementation Details
+   - How the data model is implemented
+   - Any ORM or database specific details
+   - Data validation and constraints
 
-        # Update the database record
-        if state.analysis_id:
-            await update_database_error(state)
+5. API Integration
+   - How the data model is exposed via APIs
+   - Data transfer objects (DTOs)
+   - Serialization/deserialization approaches
 
-        return state
+Format the output in markdown, with the ERD diagram in a mermaid code block.
 
-    try:
-        # Log the files to be analyzed with more detail
-        logger.debug(
-            "Data model files to be analyzed: %s",
-            json.dumps(state.data_model_files, indent=2),
-        )
+The output must have a ERD diagram, unless there are no entities or relationships in the data model.
+"""
 
-        # Log the start of the ReAct agent analysis
-        logger.info(
-            "Initiating ReAct agent analysis for repository: %s with %d files",
-            state.repository_url,
-            len(state.data_model_files),
-        )
-
-        # Run the ReAct agent to analyze the data models
-        data_model_analysis = await run_data_model_agent(
-            data_model_agent,
-            str(state.repository_url),
-            state.data_model_files,
-        )
-
-        # Log the result of the agent analysis
-        if data_model_analysis.startswith("Error"):
-            logger.error(
-                "ReAct agent analysis failed with error: %s", data_model_analysis
-            )
-            raise ValueError(data_model_analysis)
-        logger.info(
-            "ReAct agent analysis completed successfully. "
-            "Analysis length: %d characters",
-            len(data_model_analysis),
-        )
-
-        # Update state with analysis and timestamp
-        state.data_model_analysis = data_model_analysis
-        state.status = CodeAnalysisStatus.COMPLETED
-
-        # Update the database record
-        if state.analysis_id:
-            # Get current state from database to preserve other fields
-            current_doc = await code_analysis_repository.get(state.analysis_id)
-            update_data = CodeAnalysisUpdate(
-                data_model_analysis=data_model_analysis,
-                status=CodeAnalysisStatus.COMPLETED,
-                updated_at=datetime.now(timezone.utc),
-                # Preserve existing fields
-                data_model_files=current_doc.data_model_files if current_doc else None,
-            )
-            await code_analysis_repository.update(state.analysis_id, update_data)
-
-            # Log the database update
-            logger.info(
-                "Updated MongoDB with data model analysis for analysis ID: %s",
-                state.analysis_id,
-            )
-
-        logger.info(
-            "Data Model Analysis Node completed successfully for repository: %s",
-            state.repository_url,
-        )
-
-        return state
-    except Exception as e:
-        logger.error("Error in Data Model Analysis Node: %s", e)
-
-        # Update state with error and timestamp
-        state.status = CodeAnalysisStatus.ERROR
-        error_msg = f"Data model analysis failed: {str(e)}"
-        state.error = error_msg
-
-        # Update the database record
-        if state.analysis_id:
-            await update_database_error(state)
-
-        return state
-
-
-async def update_database_error(state: CodeAnalysisState) -> None:
-    """
-    Update the database with error information.
-
-    Args:
-        state: The current state containing error information
-    """
-    try:
-        # Get current state from database to preserve other fields
-        current_doc = await code_analysis_repository.get(state.analysis_id)
-        update_data = CodeAnalysisUpdate(
-            status=CodeAnalysisStatus.ERROR,
-            error=state.error,
-            updated_at=datetime.now(timezone.utc),
-            # Preserve existing fields
-            data_model_files=current_doc.data_model_files if current_doc else None,
-            data_model_analysis=current_doc.data_model_analysis
-            if current_doc
-            else None,
-        )
-        await code_analysis_repository.update(state.analysis_id, update_data)
-    except Exception as e:
-        # Log the database update failure
-        logger.error(
-            "Failed to update MongoDB with error for analysis ID: %s. Error: %s",
-            state.analysis_id,
-            str(e),
-        )
+# Create the data model analysis node using the factory
+data_model_analysis_node = create_analysis_node(
+    analysis_type="Data Model",
+    input_field_name="data_model_files",
+    output_field_name="data_model_analysis",
+    system_message=DATA_MODEL_ANALYSIS_SYSTEM_MESSAGE,
+    prompt_template=DATA_MODEL_ANALYSIS_PROMPT,
+)
