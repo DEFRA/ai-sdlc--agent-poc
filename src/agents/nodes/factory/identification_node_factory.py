@@ -154,35 +154,30 @@ def create_identification_node(
         An async function that can be used as a LangGraph node
     """
 
-    async def identification_node(state: CodeAnalysisState) -> CodeAnalysisState:
+    async def identification_node(state):
         """
         Identification node created by the factory.
 
         Args:
-            state: The current state of the workflow
+            state: The current state of the workflow (TypedDict)
 
         Returns:
             Updated state with identified files
         """
+        repository_url = state.get("repository_url")
         logger.info(
             "Starting %s Node for repository: %s",
             state_field_name,
-            state.repository_url,
+            repository_url,
         )
 
         # Check if we have the required data
-        repository_data = getattr(state, REPOSITORY_FIELD_NAME, None)
+        repository_data = state.get(REPOSITORY_FIELD_NAME)
         if not repository_data:
-            state.status = CodeAnalysisStatus.ERROR
-            state.error = (
-                f"No {REPOSITORY_FIELD_NAME} data available for {state_field_name}"
-            )
-
-            # Update the database record
-            if state.analysis_id:
-                await _update_db_on_error(state)
-
-            return state
+            # Return only the error field, not the status field
+            return {
+                "error": f"No {REPOSITORY_FIELD_NAME} data available for {state_field_name}"
+            }
 
         try:
             prompt = ChatPromptTemplate.from_template(prompt_template)
@@ -207,32 +202,40 @@ def create_identification_node(
 
             file_list = response.files
 
-            # Update state
-            setattr(state, state_field_name, file_list)
-
-            # Update the database record
-            if state.analysis_id:
-                await _update_db_with_result(state, file_list, state_field_name)
+            # Update database record if we have an analysis_id
+            analysis_id = state.get("analysis_id")
+            if analysis_id:
+                # Create a Code Analysis state to maintain compatibility with DB update functions
+                temp_state = CodeAnalysisState(
+                    repository_url=repository_url,
+                    analysis_id=analysis_id,
+                )
+                await _update_db_with_result(temp_state, file_list, state_field_name)
 
             logger.info(
                 "%s Node completed successfully for repository: %s",
                 state_field_name,
-                state.repository_url,
+                repository_url,
             )
 
-            return state
+            # Return only the updated field
+            return {state_field_name: file_list}
         except Exception as e:
             logger.error("Error in %s Node: %s", state_field_name, e)
 
-            # Update state with error and timestamp
-            state.status = CodeAnalysisStatus.ERROR
-            error_msg = f"{state_field_name} failed: {str(e)}"
-            state.error = error_msg
+            # Update database on error
+            analysis_id = state.get("analysis_id")
+            if analysis_id:
+                # Create a Code Analysis state to maintain compatibility with DB update functions
+                temp_state = CodeAnalysisState(
+                    repository_url=repository_url,
+                    analysis_id=analysis_id,
+                    status=CodeAnalysisStatus.ERROR,
+                    error=f"{state_field_name} failed: {str(e)}",
+                )
+                await _update_db_on_error(temp_state)
 
-            # Update the database record
-            if state.analysis_id:
-                await _update_db_on_error(state)
-
-            return state
+            # Return only the error field, not the status field
+            return {"error": f"{state_field_name} failed: {str(e)}"}
 
     return identification_node

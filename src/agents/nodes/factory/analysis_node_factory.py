@@ -1,9 +1,8 @@
 """LLM Analysis Node Factory for creating reusable LangGraph nodes."""
 
 import logging
-from collections.abc import Awaitable
 from datetime import datetime, timezone
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
@@ -89,55 +88,59 @@ async def _update_db_on_error(state: CodeAnalysisState) -> None:
 
 
 async def _handle_analysis(
-    state: CodeAnalysisState,
+    state,
     agent: Any,
     analysis_type: str,
     input_field_name: str,
     output_field_name: str,
     prompt_template: str,
-) -> CodeAnalysisState:
+):
     """Handle the analysis process and update state accordingly.
 
     Args:
-        state: Current workflow state
-        agent: The analysis agent
-        analysis_type: Type of analysis being performed
-        input_field_name: Field in state containing input files
-        output_field_name: Field in state to store results
+        state: The current state of the workflow (TypedDict)
+        agent: The analysis agent to use
+        analysis_type: A descriptive name for the analysis type
+        input_field_name: Field name in state containing input files to analyze
+        output_field_name: Field name in state to store analysis results
         prompt_template: Template for the analysis prompt
 
     Returns:
-        Updated state
+        Updated state dictionary with analysis or error
     """
-    # Check if we have the required data
-    input_files = getattr(state, input_field_name, None)
-    if not input_files:
-        state.status = CodeAnalysisStatus.ERROR
-        state.error = f"No {input_field_name} identified for analysis"
-
-        # Update the database record
-        if state.analysis_id:
-            await _update_db_on_error(state)
-
-        return state
-
-    # Check if agent was initialized properly
+    # First check if the agent is available
     if agent is None:
-        state.status = CodeAnalysisStatus.ERROR
-        state.error = f"{analysis_type} Analysis agent was not initialized properly"
+        error_message = "No agent available for " + analysis_type + " analysis"
+        raise ValueError(error_message)
 
-        # Update the database record
-        if state.analysis_id:
-            await _update_db_on_error(state)
+    repository_url = state.get("repository_url")
+    analysis_id = state.get("analysis_id")
 
-        return state
+    # Check if we have the required input data
+    input_files = state.get(input_field_name)
+    if not input_files:
+        # Return only the error field to avoid concurrent updates
+        error_msg = f"No {input_field_name} data available for {analysis_type} analysis"
+
+        # Update the database record if we have an analysis_id
+        if analysis_id:
+            # Create a temporary state object for DB update
+            temp_state = CodeAnalysisState(
+                repository_url=repository_url,
+                analysis_id=analysis_id,
+                status=CodeAnalysisStatus.ERROR,
+                error=error_msg,
+            )
+            await _update_db_on_error(temp_state)
+
+        return {"error": error_msg}
 
     try:
         # Log the start of the agent analysis
         logger.info(
             "Initiating %s agent analysis for repository: %s with %d files",
             analysis_type,
-            state.repository_url,
+            repository_url,
             len(input_files),
         )
 
@@ -145,7 +148,7 @@ async def _handle_analysis(
         analysis_result = await run_analysis_agent(
             agent=agent,
             prompt_template=prompt_template,
-            repository_url=str(state.repository_url),
+            repository_url=str(repository_url),
             file_list=input_files,
         )
 
@@ -164,34 +167,42 @@ async def _handle_analysis(
             len(analysis_result),
         )
 
-        # Update state with analysis and status
-        setattr(state, output_field_name, analysis_result)
-        state.status = CodeAnalysisStatus.COMPLETED
-
-        # Update the database record
-        if state.analysis_id:
-            await _update_db_with_result(state, analysis_result, output_field_name)
+        # Update the database record if we have an analysis_id
+        if analysis_id:
+            # Create a temporary state object for DB update
+            temp_state = CodeAnalysisState(
+                repository_url=repository_url,
+                analysis_id=analysis_id,
+                status=CodeAnalysisStatus.COMPLETED,
+            )
+            await _update_db_with_result(temp_state, analysis_result, output_field_name)
 
         logger.info(
             "%s Analysis Node completed successfully for repository: %s",
             analysis_type,
-            state.repository_url,
+            repository_url,
         )
 
-        return state
+        # Return only the updated field, no status to avoid concurrent updates
+        return {output_field_name: analysis_result}
     except Exception as e:
         logger.error("Error in %s Analysis Node: %s", analysis_type, e)
 
-        # Update state with error and timestamp
-        state.status = CodeAnalysisStatus.ERROR
         error_msg = f"{analysis_type} analysis failed: {str(e)}"
-        state.error = error_msg
 
-        # Update the database record
-        if state.analysis_id:
-            await _update_db_on_error(state)
+        # Update the database record if we have an analysis_id
+        if analysis_id:
+            # Create a temporary state object for DB update
+            temp_state = CodeAnalysisState(
+                repository_url=repository_url,
+                analysis_id=analysis_id,
+                status=CodeAnalysisStatus.ERROR,
+                error=error_msg,
+            )
+            await _update_db_on_error(temp_state)
 
-        return state
+        # Return only the error field, no status to avoid concurrent updates
+        return {"error": error_msg}
 
 
 def create_analysis_node(
@@ -202,7 +213,7 @@ def create_analysis_node(
     prompt_template: str,
     model_name: str = "claude-3-5-sonnet-20241022",
     temperature: float = 0,
-) -> Callable[[CodeAnalysisState], Awaitable[CodeAnalysisState]]:
+):
     """
     Factory function that creates an analysis node.
     Analysis nodes use an agent to analyze files and generate reports.
@@ -231,12 +242,13 @@ def create_analysis_node(
         logger.error("Failed to initialize %s agent: %s", analysis_type, e)
         agent = None
 
-    async def analysis_node(state: CodeAnalysisState) -> CodeAnalysisState:
+    async def analysis_node(state):
         """Analysis node created by the factory."""
+        repository_url = state.get("repository_url")
         logger.info(
             "Starting %s Analysis Node for repository: %s",
             analysis_type,
-            state.repository_url,
+            repository_url,
         )
 
         return await _handle_analysis(

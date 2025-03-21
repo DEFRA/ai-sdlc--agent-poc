@@ -6,7 +6,7 @@ A working example of this can be found in the @data_model_identification.py and 
   
 We also have a functioning linear graph that uses these agents in @code_analysis_graph.py .  
   
-**IMPLIMENTATION PHASE**  
+**IMPLIMENTATION PHASE:**
   
 We would like to create 2 new sets of nodes based on the @data_model_analysis.py and @data_model_identification.py nodes, using the same factory pattern. The data model nodes perform the task of identifying the files needed to do a detailed analysis on the data model in the code base. These new nodes will follow the same pattern, as follows:  
   

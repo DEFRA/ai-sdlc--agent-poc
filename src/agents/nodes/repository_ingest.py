@@ -4,7 +4,6 @@ import logging
 
 import aiohttp
 
-from src.agents.states.code_analysis_state import CodeAnalysisState
 from src.config.settings import settings
 from src.models.code_analysis import CodeAnalysisStatus, CodeAnalysisUpdate
 from src.repositories.code_analysis import code_analysis_repository
@@ -12,7 +11,7 @@ from src.repositories.code_analysis import code_analysis_repository
 logger = logging.getLogger(__name__)
 
 
-async def repository_ingest_node(state: CodeAnalysisState) -> CodeAnalysisState:
+async def repository_ingest_node(state):
     """
     Repository Ingest Node for the code analysis workflow.
 
@@ -20,14 +19,15 @@ async def repository_ingest_node(state: CodeAnalysisState) -> CodeAnalysisState:
     It updates the state with the ingested repository data and technologies.
 
     Args:
-        state: The current state of the workflow.
+        state: The current state of the workflow (TypedDict).
 
     Returns:
-        Updated state with repository data and technologies.
+        Updated state dictionary with repository data and technologies.
     """
-    logger.info(
-        "Starting Repository Ingest Node for repository: %s", state.repository_url
-    )
+    repository_url = state.get("repository_url")
+    analysis_id = state.get("analysis_id")
+
+    logger.info("Starting Repository Ingest Node for repository: %s", repository_url)
 
     try:
         # Call the external Repository Ingest API
@@ -46,7 +46,7 @@ async def repository_ingest_node(state: CodeAnalysisState) -> CodeAnalysisState:
             aiohttp.ClientSession() as session,
             session.post(
                 repository_ingest_url,
-                json={"repositoryUrl": state.repository_url},
+                json={"repositoryUrl": repository_url},
                 headers={"Content-Type": "application/json"},
             ) as response,
         ):
@@ -62,36 +62,40 @@ async def repository_ingest_node(state: CodeAnalysisState) -> CodeAnalysisState:
 
             result = await response.json()
 
-            # Update state with repository data
-            state.ingested_repository = result.get("ingestedRepository")
-            state.technologies = result.get("technologies", [])
+            # Get repository data from API response
+            ingested_repository = result.get("ingestedRepository")
+            technologies = result.get("technologies", [])
 
-            # Update the database record
-            if state.analysis_id:
+            # Update the database record if we have an analysis_id
+            if analysis_id:
                 update_data = CodeAnalysisUpdate(
-                    ingested_repository=state.ingested_repository,
-                    technologies=state.technologies,
+                    ingested_repository=ingested_repository,
+                    technologies=technologies,
                 )
-                await code_analysis_repository.update(state.analysis_id, update_data)
+                await code_analysis_repository.update(analysis_id, update_data)
 
             logger.info(
                 "Repository Ingest Node completed successfully for repository: %s",
-                state.repository_url,
+                repository_url,
             )
 
-            return state
+            # Return only the updated fields
+            return {
+                "ingested_repository": ingested_repository,
+                "technologies": technologies,
+            }
     except Exception as e:
         logger.error("Error in Repository Ingest Node: %s", e)
 
-        # Update state with error
-        state.status = CodeAnalysisStatus.ERROR
-        state.error = f"Repository ingest failed: {str(e)}"
+        error_msg = f"Repository ingest failed: {str(e)}"
 
-        # Update the database record
-        if state.analysis_id:
+        # Update the database record if we have an analysis_id
+        if analysis_id:
+            # Create update data
             update_data = CodeAnalysisUpdate(
                 status=CodeAnalysisStatus.ERROR,
             )
-            await code_analysis_repository.update(state.analysis_id, update_data)
+            await code_analysis_repository.update(analysis_id, update_data)
 
-        return state
+        # Return only the error field, not the status field, to avoid conflicts
+        return {"error": error_msg}

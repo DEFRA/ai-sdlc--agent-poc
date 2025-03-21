@@ -29,12 +29,33 @@ class CodeAnalysisState(BaseModel):
         default=None, description="List of technologies used in the repository"
     )
 
-    # Data Model Analysis
+    # Data Model Analysis - Using Annotated for fields that might be updated concurrently
     data_model_files: Optional[list[str]] = Field(
         default=None, description="List of identified data model files"
     )
     data_model_analysis: Optional[str] = Field(
         default=None, description="Generated data model analysis with ERD"
+    )
+
+    # Routes and Interfaces Analysis - Using Annotated for fields that might be updated concurrently
+    routes_interfaces_files: Optional[list[str]] = Field(
+        default=None, description="List of identified routes and interfaces files"
+    )
+    routes_interfaces_analysis: Optional[str] = Field(
+        default=None, description="Generated routes and interfaces analysis"
+    )
+
+    # Business Logic Analysis - Using Annotated for fields that might be updated concurrently
+    business_logic_files: Optional[list[str]] = Field(
+        default=None, description="List of identified business logic files"
+    )
+    business_logic_analysis: Optional[str] = Field(
+        default=None, description="Generated business logic analysis"
+    )
+
+    # Product Requirements
+    product_requirements: Optional[str] = Field(
+        default=None, description="Generated product requirements document"
     )
 
     # Output
