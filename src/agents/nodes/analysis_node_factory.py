@@ -200,7 +200,7 @@ def create_analysis_node(
     output_field_name: str,
     system_message: str,
     prompt_template: str,
-    model_name: str = "claude-3-7-sonnet-20250219",
+    model_name: str = "claude-3-5-sonnet-20241022",
     temperature: float = 0,
 ) -> Callable[[CodeAnalysisState], Awaitable[CodeAnalysisState]]:
     """
