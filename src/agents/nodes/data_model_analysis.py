@@ -2,7 +2,7 @@
 
 import logging
 
-from src.agents.nodes.analysis_node_factory import create_analysis_node
+from src.agents.nodes.factory.analysis_node_factory import create_analysis_node
 
 logger = logging.getLogger(__name__)
 

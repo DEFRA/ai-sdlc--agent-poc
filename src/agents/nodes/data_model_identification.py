@@ -2,7 +2,7 @@
 
 import logging
 
-from src.agents.nodes.identification_node_factory import create_identification_node
+from src.agents.nodes.factory.identification_node_factory import create_identification_node
 
 logger = logging.getLogger(__name__)
 
