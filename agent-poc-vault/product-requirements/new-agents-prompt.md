@@ -28,7 +28,51 @@ We would like to create 2 new sets of nodes based on the @data_model_analysis.py
 
 # LangGraph state updates
 
-Because we are now running nodes to update state in parallel, we will need to update the factory patterns to allow the LangGraph workflow to update the state in a single LangGraph step of the workflow.  We only want to update the state variables for the variables in each node, we do not want to update all the existing state.
+Because we are now running nodes to update state in parallel, we will need to update the factory patterns to allow the LangGraph workflow to update the state in a single LangGraph step of the workflow.  We only want to update the state variables for the variables in each node, we do not want to update all the existing state.  To do this, we need to ensure the state variables use reducers. Example as follows:
+
+```
+T = TypeVar("T")
+
+  
+  
+
+# Reducer function for handling field conflicts - follows (a, b) -> c signature
+
+def keep_first_reducer(a: T, b: T) -> T:
+
+"""Keep the first non-None value."""
+
+if a is not None:
+
+return a
+
+return b
+
+  
+  
+
+# Custom reducer for status field to prioritize ERROR status - follows (a, b) -> c signature
+
+def status_reducer(a: CodeAnalysisStatus, b: CodeAnalysisStatus) -> CodeAnalysisStatus:
+
+"""
+
+Prioritize ERROR status over other statuses.
+
+If ERROR is present in either value, return ERROR.
+
+Otherwise, return the first value.
+
+"""
+
+# Prioritize ERROR status
+
+if a == CodeAnalysisStatus.ERROR or b == CodeAnalysisStatus.ERROR:
+
+return CodeAnalysisStatus.ERROR
+
+return a # Return first value if neither is ERROR
+```
 
 # mongodb schema updates  
   
