@@ -4,7 +4,7 @@ We have 2 factory classes called @analysis_node_factory.py and @identification_n
   
 A working example of this can be found in the @data_model_identification.py and @data_model_analysis.py files.  
   
-We also have a functioning linear graph that uses these agents in @code_analysis_graph.py .  
+We also have a functioning linear graph that uses these agents in @code_analysis_graph.py .
   
 **IMPLIMENTATION PHASE**  
   
@@ -19,13 +19,17 @@ We would like to create 2 new sets of nodes based on the @data_model_analysis.py
 # Business Logic nodes  
   
 - business_logic_identification.py - which will be used to identify the files in the code base that may be needed to do a detailed analysis of the relationships, dependencies and business logic used in the code base, including a detailed relationship analysis of functions, classes and tests. The resulting files array will be saved to the 'business_logic_files' in the state store.  
-- business_logic_analysis.py - which will be used to perform the detailed analysis of the relationships, dependencies and business logic used in the code base, including a detailed relationship analysis of functions, classes and tests. The resulting markdown analaysis will be saved to the 'data_model_analysis' in the state store.  
+- business_logic_analysis.py - which will be used to perform the detailed analysis of the relationships, dependencies and business logic used in the code base, including a detailed relationship analysis of functions, classes and tests. The resulting markdown analysis will be saved to the 'data_model_analysis' in the state store.  
   
 # LangGraph workflow updates  
   
 - We want the pair of data model ingest and analysis nodes to be run in parallel (async) alongside the Routes and Interfaces nodes and Business Logic nodes  
-- We then want a new node called 'product_requirements' that will combine the outputs from the above data_model_analysis, routes_interfaces_analysis, business_logic_analysis nodes that are stored in the mongodb state and then, using an anthropic LLM call, combine all the analysis state information to break down the product requirements of the code base into features and stories. This should return a detailed product requirements document in markdown format.  
-  
+- We then want a new node called 'product_requirements' that will combine the outputs from the above data_model_analysis, routes_interfaces_analysis, business_logic_analysis nodes that are stored in the mongodb state and then, using an anthropic LLM call, combine all the analysis state information to break down the product requirements of the code base into features and stories. This should return a detailed product requirements document in markdown format.
+
+# LangGraph state updates
+
+Because we are now running nodes to update state in parallel, we will need to update the factory patterns to allow the LangGraph workflow to update the state in a single LangGraph step of the workflow.  We only want to update the state variables for the variables in each node, we do not want to update all the existing state.
+
 # mongodb schema updates  
   
 Make sure the new fields are included in the mongodb schema. 
