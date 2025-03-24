@@ -3,6 +3,8 @@
 import logging
 
 from src.agents.nodes.factory.analysis_node_factory import create_analysis_node
+from src.agents.states.analysis_state import AnalysisState
+from src.agents.states.code_analysis_state import CodeAnalysisState
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +56,56 @@ Format the output in markdown, with the ERD diagram in a mermaid code block.
 The output must have a ERD diagram, unless there are no entities or relationships in the data model.
 """
 
-# Create the data model analysis node using the factory
-data_model_analysis_node = create_analysis_node(
+# Create the factory node
+_factory_node = create_analysis_node(
     analysis_type="Data Model",
     input_field_name="data_model_files",
     output_field_name="data_model_analysis",
     system_message=DATA_MODEL_ANALYSIS_SYSTEM_MESSAGE,
     prompt_template=DATA_MODEL_ANALYSIS_PROMPT,
 )
+
+
+# Create a wrapper node that translates between CodeAnalysisState and AnalysisState
+async def data_model_analysis_node(state: CodeAnalysisState) -> CodeAnalysisState:
+    """
+    Wrapper node for data model analysis.
+
+    This node:
+    1. Converts from CodeAnalysisState to AnalysisState
+    2. Calls the factory node with config
+    3. Updates CodeAnalysisState with results
+
+    Args:
+        state: The current CodeAnalysisState
+
+    Returns:
+        Updated CodeAnalysisState
+    """
+    # Check if we have the required input
+    if not state.data_model_files:
+        state.error = "No data model files available for analysis"
+        return state
+
+    # Create analysis state with data_model_files from main state
+    analysis_state = AnalysisState(data_model_files=state.data_model_files)
+
+    # Create config with read-only values
+    config = {
+        "configurable": {
+            "analysis_id": state.analysis_id,
+            "repository_url": state.repository_url,
+        }
+    }
+
+    # Run the factory node
+    result_state = await _factory_node(analysis_state, config)
+
+    # Update the main state with results
+    if result_state.data_model_analysis:
+        state.data_model_analysis = result_state.data_model_analysis
+
+    if result_state.error:
+        state.error = result_state.error
+
+    return state

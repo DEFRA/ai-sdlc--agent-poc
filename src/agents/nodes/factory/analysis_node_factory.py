@@ -11,7 +11,7 @@ from src.agents.react_agents.analysis_agent import (
     create_analysis_agent,
     run_analysis_agent,
 )
-from src.agents.states.code_analysis_state import CodeAnalysisState
+from src.agents.states.analysis_state import AnalysisState
 from src.models.code_analysis import CodeAnalysisStatus, CodeAnalysisUpdate
 from src.repositories.code_analysis import code_analysis_repository
 
@@ -21,12 +21,14 @@ T = TypeVar("T", bound=BaseModel)
 
 
 async def _update_db_with_result(
-    state: CodeAnalysisState, result: Any, field_name: str
+    analysis_id: str, result: Any, field_name: str
 ) -> None:
     """Helper function to update database with analysis results."""
-    current_doc = await code_analysis_repository.get(state.analysis_id)
+    if not analysis_id:
+        logger.warning("No analysis_id provided, skipping database update")
+        return
 
-    # Create update data with the result field dynamically
+    # Create update data with just the result field and status
     update_data = CodeAnalysisUpdate(
         status=CodeAnalysisStatus.COMPLETED,
         updated_at=datetime.now(timezone.utc),
@@ -35,71 +37,48 @@ async def _update_db_with_result(
     # Set the field dynamically
     setattr(update_data, field_name, result)
 
-    # Preserve existing fields from current_doc, not from state
-    if current_doc:
-        # Get the field names from the CodeAnalysisUpdate model
-        valid_fields = set(CodeAnalysisUpdate.model_fields.keys())
-
-        # Only copy fields that exist in the CodeAnalysisUpdate model
-        for field in valid_fields:
-            # Skip fields we've already set
-            if field not in ["updated_at", "status", field_name] and hasattr(
-                current_doc, field
-            ):
-                value = getattr(current_doc, field, None)
-                if value is not None:
-                    setattr(update_data, field, value)
-
-    await code_analysis_repository.update(state.analysis_id, update_data)
+    await code_analysis_repository.update(analysis_id, update_data)
 
     logger.info(
         "Updated MongoDB with %s results for analysis ID: %s",
         field_name,
-        state.analysis_id,
+        analysis_id,
     )
 
 
-async def _update_db_on_error(state: CodeAnalysisState) -> None:
+async def _update_db_on_error(analysis_id: str, error_msg: str) -> None:
     """Helper function to update database on error."""
-    current_doc = await code_analysis_repository.get(state.analysis_id)
+    if not analysis_id:
+        logger.warning("No analysis_id provided, skipping database update")
+        return
 
-    # Create update with just the error fields
+    # Create update with just the error and status fields
     update_data = CodeAnalysisUpdate(
         status=CodeAnalysisStatus.ERROR,
-        error=state.error,
         updated_at=datetime.now(timezone.utc),
     )
 
-    # Preserve existing fields from current_doc, not from state
-    if current_doc:
-        # Get the field names from the CodeAnalysisUpdate model
-        valid_fields = set(CodeAnalysisUpdate.model_fields.keys())
+    await code_analysis_repository.update(analysis_id, update_data)
 
-        # Only copy fields that exist in the CodeAnalysisUpdate model
-        for field in valid_fields:
-            # Skip fields we've already set
-            if field not in ["updated_at", "status", "error"] and hasattr(
-                current_doc, field
-            ):
-                value = getattr(current_doc, field, None)
-                if value is not None:
-                    setattr(update_data, field, value)
-
-    await code_analysis_repository.update(state.analysis_id, update_data)
+    logger.error(
+        "Updated error status for analysis ID: %s - %s", analysis_id, error_msg
+    )
 
 
 async def _handle_analysis(
-    state: CodeAnalysisState,
+    state: AnalysisState,
+    config: dict[str, Any],
     agent: Any,
     analysis_type: str,
     input_field_name: str,
     output_field_name: str,
     prompt_template: str,
-) -> CodeAnalysisState:
+) -> AnalysisState:
     """Handle the analysis process and update state accordingly.
 
     Args:
         state: Current workflow state
+        config: Configuration containing read-only context values
         agent: The analysis agent
         analysis_type: Type of analysis being performed
         input_field_name: Field in state containing input files
@@ -109,26 +88,31 @@ async def _handle_analysis(
     Returns:
         Updated state
     """
+    # Extract context values from config
+    node_config = config.get("configurable", {})
+    analysis_id = node_config.get("analysis_id")
+    repository_url = node_config.get("repository_url")
+
     # Check if we have the required data
     input_files = getattr(state, input_field_name, None)
     if not input_files:
-        state.status = CodeAnalysisStatus.ERROR
-        state.error = f"No {input_field_name} identified for analysis"
+        error_msg = f"No {input_field_name} identified for analysis"
+        state.error = error_msg
 
         # Update the database record
-        if state.analysis_id:
-            await _update_db_on_error(state)
+        if analysis_id:
+            await _update_db_on_error(analysis_id, error_msg)
 
         return state
 
     # Check if agent was initialized properly
     if agent is None:
-        state.status = CodeAnalysisStatus.ERROR
-        state.error = f"{analysis_type} Analysis agent was not initialized properly"
+        error_msg = f"{analysis_type} Analysis agent was not initialized properly"
+        state.error = error_msg
 
         # Update the database record
-        if state.analysis_id:
-            await _update_db_on_error(state)
+        if analysis_id:
+            await _update_db_on_error(analysis_id, error_msg)
 
         return state
 
@@ -137,7 +121,7 @@ async def _handle_analysis(
         logger.info(
             "Initiating %s agent analysis for repository: %s with %d files",
             analysis_type,
-            state.repository_url,
+            repository_url,
             len(input_files),
         )
 
@@ -145,7 +129,7 @@ async def _handle_analysis(
         analysis_result = await run_analysis_agent(
             agent=agent,
             prompt_template=prompt_template,
-            repository_url=str(state.repository_url),
+            repository_url=str(repository_url),
             file_list=input_files,
         )
 
@@ -164,32 +148,32 @@ async def _handle_analysis(
             len(analysis_result),
         )
 
-        # Update state with analysis and status
+        # Update state with analysis
         setattr(state, output_field_name, analysis_result)
-        state.status = CodeAnalysisStatus.COMPLETED
 
         # Update the database record
-        if state.analysis_id:
-            await _update_db_with_result(state, analysis_result, output_field_name)
+        if analysis_id:
+            await _update_db_with_result(
+                analysis_id, analysis_result, output_field_name
+            )
 
         logger.info(
             "%s Analysis Node completed successfully for repository: %s",
             analysis_type,
-            state.repository_url,
+            repository_url,
         )
 
         return state
     except Exception as e:
+        error_msg = f"{analysis_type} analysis failed: {str(e)}"
         logger.error("Error in %s Analysis Node: %s", analysis_type, e)
 
-        # Update state with error and timestamp
-        state.status = CodeAnalysisStatus.ERROR
-        error_msg = f"{analysis_type} analysis failed: {str(e)}"
+        # Update state with error
         state.error = error_msg
 
         # Update the database record
-        if state.analysis_id:
-            await _update_db_on_error(state)
+        if analysis_id:
+            await _update_db_on_error(analysis_id, error_msg)
 
         return state
 
@@ -202,7 +186,7 @@ def create_analysis_node(
     prompt_template: str,
     model_name: str = "claude-3-5-sonnet-20241022",
     temperature: float = 0,
-) -> Callable[[CodeAnalysisState], Awaitable[CodeAnalysisState]]:
+) -> Callable[[AnalysisState, dict[str, Any]], Awaitable[AnalysisState]]:
     """
     Factory function that creates an analysis node.
     Analysis nodes use an agent to analyze files and generate reports.
@@ -231,16 +215,23 @@ def create_analysis_node(
         logger.error("Failed to initialize %s agent: %s", analysis_type, e)
         agent = None
 
-    async def analysis_node(state: CodeAnalysisState) -> CodeAnalysisState:
+    async def analysis_node(
+        state: AnalysisState, config: dict[str, Any]
+    ) -> AnalysisState:
         """Analysis node created by the factory."""
+        # Extract context values from config
+        node_config = config.get("configurable", {})
+        repository_url = node_config.get("repository_url")
+
         logger.info(
             "Starting %s Analysis Node for repository: %s",
             analysis_type,
-            state.repository_url,
+            repository_url,
         )
 
         return await _handle_analysis(
             state=state,
+            config=config,
             agent=agent,
             analysis_type=analysis_type,
             input_field_name=input_field_name,

@@ -2,14 +2,14 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
-from src.agents.states.code_analysis_state import CodeAnalysisState
+from src.agents.states.identification_state import IdentificationState
 from src.config.settings import settings
 from src.models.code_analysis import CodeAnalysisStatus, CodeAnalysisUpdate
 from src.repositories.code_analysis import code_analysis_repository
@@ -68,12 +68,14 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
 
 
 async def _update_db_with_result(
-    state: CodeAnalysisState, result: Any, field_name: str
+    analysis_id: str, result: Any, field_name: str
 ) -> None:
     """Helper function to update database with analysis results."""
-    current_doc = await code_analysis_repository.get(state.analysis_id)
+    if not analysis_id:
+        logger.warning("No analysis_id provided, skipping database update")
+        return
 
-    # Create update data with the result field dynamically
+    # Create update data with just the result field
     update_data = CodeAnalysisUpdate(
         updated_at=datetime.now(timezone.utc),
     )
@@ -81,56 +83,32 @@ async def _update_db_with_result(
     # Set the field dynamically
     setattr(update_data, field_name, result)
 
-    # Preserve existing fields from current_doc, not from state
-    # This avoids trying to copy fields that don't exist in CodeAnalysisUpdate
-    if current_doc:
-        # Get the field names from the CodeAnalysisUpdate model
-        valid_fields = set(CodeAnalysisUpdate.model_fields.keys())
-
-        # Only copy fields that exist in the CodeAnalysisUpdate model
-        for field in valid_fields:
-            # Skip fields we've already set
-            if field not in ["updated_at", field_name] and hasattr(current_doc, field):
-                value = getattr(current_doc, field, None)
-                if value is not None:
-                    setattr(update_data, field, value)
-
-    await code_analysis_repository.update(state.analysis_id, update_data)
+    await code_analysis_repository.update(analysis_id, update_data)
 
     logger.info(
         "Updated MongoDB with %s results for analysis ID: %s",
         field_name,
-        state.analysis_id,
+        analysis_id,
     )
 
 
-async def _update_db_on_error(state: CodeAnalysisState) -> None:
+async def _update_db_on_error(analysis_id: str, error_msg: str) -> None:
     """Helper function to update database on error."""
-    current_doc = await code_analysis_repository.get(state.analysis_id)
+    if not analysis_id:
+        logger.warning("No analysis_id provided, skipping database update")
+        return
 
-    # Create update with just the error fields
+    # Create update with just the error and status fields
     update_data = CodeAnalysisUpdate(
         status=CodeAnalysisStatus.ERROR,
-        error=state.error,
         updated_at=datetime.now(timezone.utc),
     )
 
-    # Preserve existing fields from current_doc, not from state
-    if current_doc:
-        # Get the field names from the CodeAnalysisUpdate model
-        valid_fields = set(CodeAnalysisUpdate.model_fields.keys())
+    await code_analysis_repository.update(analysis_id, update_data)
 
-        # Only copy fields that exist in the CodeAnalysisUpdate model
-        for field in valid_fields:
-            # Skip fields we've already set
-            if field not in ["updated_at", "status", "error"] and hasattr(
-                current_doc, field
-            ):
-                value = getattr(current_doc, field, None)
-                if value is not None:
-                    setattr(update_data, field, value)
-
-    await code_analysis_repository.update(state.analysis_id, update_data)
+    logger.error(
+        "Updated error status for analysis ID: %s - %s", analysis_id, error_msg
+    )
 
 
 def create_identification_node(
@@ -154,33 +132,39 @@ def create_identification_node(
         An async function that can be used as a LangGraph node
     """
 
-    async def identification_node(state: CodeAnalysisState) -> CodeAnalysisState:
+    async def identification_node(
+        state: IdentificationState, config: dict[str, Any]
+    ) -> IdentificationState:
         """
         Identification node created by the factory.
 
         Args:
             state: The current state of the workflow
+            config: Configuration containing read-only context values
 
         Returns:
             Updated state with identified files
         """
+        # Extract context values from config
+        node_config = config.get("configurable", {})
+        analysis_id = node_config.get("analysis_id")
+        repository_url = node_config.get("repository_url")
+        ingested_repository = node_config.get("ingested_repository")
+
         logger.info(
             "Starting %s Node for repository: %s",
             state_field_name,
-            state.repository_url,
+            repository_url,
         )
 
         # Check if we have the required data
-        repository_data = getattr(state, REPOSITORY_FIELD_NAME, None)
-        if not repository_data:
-            state.status = CodeAnalysisStatus.ERROR
-            state.error = (
-                f"No {REPOSITORY_FIELD_NAME} data available for {state_field_name}"
-            )
+        if not ingested_repository:
+            error_msg = f"No ingested_repository data available for {state_field_name}"
+            state.error = error_msg
 
             # Update the database record
-            if state.analysis_id:
-                await _update_db_on_error(state)
+            if analysis_id:
+                await _update_db_on_error(analysis_id, error_msg)
 
             return state
 
@@ -189,6 +173,7 @@ def create_identification_node(
 
             token_usage_callback = TokenUsageCallbackHandler()
 
+            # Initialize Anthropic model with required parameters
             model = ChatAnthropic(
                 model=model_name,
                 temperature=temperature,
@@ -200,38 +185,38 @@ def create_identification_node(
             structured_model = model.with_structured_output(Files)
 
             messages = prompt.format_messages(
-                ingested_repository=repository_data,
+                ingested_repository=ingested_repository,
             )
 
+            # Get response and explicitly cast to Files model
             response = await structured_model.ainvoke(messages)
-
-            file_list = response.files
+            response_model = cast(Files, response)
+            file_list = response_model.files
 
             # Update state
-            setattr(state, state_field_name, file_list)
+            state.data_model_files = file_list
 
             # Update the database record
-            if state.analysis_id:
-                await _update_db_with_result(state, file_list, state_field_name)
+            if analysis_id:
+                await _update_db_with_result(analysis_id, file_list, state_field_name)
 
             logger.info(
                 "%s Node completed successfully for repository: %s",
                 state_field_name,
-                state.repository_url,
+                repository_url,
             )
 
             return state
         except Exception as e:
+            error_msg = f"{state_field_name} failed: {str(e)}"
             logger.error("Error in %s Node: %s", state_field_name, e)
 
-            # Update state with error and timestamp
-            state.status = CodeAnalysisStatus.ERROR
-            error_msg = f"{state_field_name} failed: {str(e)}"
+            # Update state with error
             state.error = error_msg
 
             # Update the database record
-            if state.analysis_id:
-                await _update_db_on_error(state)
+            if analysis_id:
+                await _update_db_on_error(analysis_id, error_msg)
 
             return state
 

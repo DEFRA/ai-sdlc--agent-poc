@@ -11,4 +11,4 @@ ruff format
 echo "Running ruff check..."
 ruff check
 
-echo "Finished formatting and checking code." 
+echo "Finished formatting and checking code."
