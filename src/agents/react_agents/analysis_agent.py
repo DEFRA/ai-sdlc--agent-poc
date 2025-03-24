@@ -55,7 +55,7 @@ def create_analysis_agent(
     system_message: str,
     model_name: str = "claude-3-5-sonnet-20241022",
     temperature: float = 0,
-    max_tokens: int = 64000,
+    max_tokens: int = 8192,
 ) -> Any:
     """
     Create a ReAct agent for analysis.
