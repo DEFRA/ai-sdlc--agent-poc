@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, TypedDict, Union
+from typing import Any, Union
 
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
@@ -21,15 +21,23 @@ class ParentState(BaseModel):
 
 
 # Step 2: Define the Subgraph's State Type
-class SubgraphState(TypedDict):
-    input_data: str
-    result: str
+class SubgraphState(BaseModel):
+    input_data: str = Field(description="Input data to be processed by the subgraph")
+    result: str = Field(default="", description="Result of the subgraph processing")
+
+    def model_dump(self) -> dict[str, str]:
+        """Convert the model to a dictionary."""
+        return {"input_data": self.input_data, "result": self.result}
 
 
 # Step 3: Implement the Subgraph
-async def subgraph_node(state: dict[str, str]) -> dict[str, str]:
+async def subgraph_node(state: Union[dict[str, str], SubgraphState]) -> dict[str, str]:
+    # Convert to SubgraphState if needed
+    state_model = state if isinstance(state, SubgraphState) else SubgraphState(**state)
     # Process the input
-    return {"result": state["input_data"].upper()}
+    result = state_model.input_data.upper()
+    # Return as dict
+    return {"result": result}
 
 
 subgraph_builder = StateGraph(SubgraphState)
