@@ -69,15 +69,20 @@ async def parallel_invocation(
 ) -> dict[str, Any]:
     # Convert to ParentState if needed
     state_model = ParentState(**state) if isinstance(state, dict) else state
-    # Create tasks for parallel execution
-    task1 = invoke_subgraph(
-        {"shared_data": state_model.shared_data + " task1", "subgraph_results": []}
+
+    # Create async tasks for parallel execution
+    task1 = asyncio.create_task(
+        invoke_subgraph(
+            {"shared_data": state_model.shared_data + " task1", "subgraph_results": []}
+        )
     )
-    task2 = invoke_subgraph(
-        {"shared_data": state_model.shared_data + " task2", "subgraph_results": []}
+    task2 = asyncio.create_task(
+        invoke_subgraph(
+            {"shared_data": state_model.shared_data + " task2", "subgraph_results": []}
+        )
     )
 
-    # Execute tasks concurrently
+    # Execute tasks concurrently and wait for both to complete
     results = await asyncio.gather(task1, task2)
 
     # Combine results
