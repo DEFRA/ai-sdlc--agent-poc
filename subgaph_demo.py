@@ -104,9 +104,15 @@ async def merge_results(state: Union[dict[str, Any], ParentState]) -> dict[str, 
 
 # Build the Parent Graph
 parent_builder = StateGraph(ParentState)
-parent_builder.add_node(
-    "start", lambda _: {"shared_data": "initial data", "subgraph_results": []}
-)
+
+
+# Define async start node
+async def start_node(_: Any) -> dict[str, Any]:
+    """Initialize the graph state."""
+    return {"shared_data": "initial data", "subgraph_results": []}
+
+
+parent_builder.add_node("start", start_node)
 parent_builder.set_entry_point("start")
 parent_builder.add_node("parallel_execution", parallel_invocation)
 parent_builder.add_node("merge_results", merge_results)
