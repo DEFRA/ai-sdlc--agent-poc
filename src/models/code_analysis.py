@@ -44,6 +44,12 @@ class CodeAnalysisResponse(BaseModel):
     data_model_analysis: Optional[str] = Field(
         None, description="Generated data model analysis with ERD"
     )
+    routes_interfaces_files: Optional[list[str]] = Field(
+        None, description="List of identified routes and interfaces files"
+    )
+    routes_interfaces_analysis: Optional[str] = Field(
+        None, description="Generated routes and interfaces analysis"
+    )
     created_at: datetime = Field(
         ..., description="Timestamp when the analysis was created"
     )
@@ -62,6 +68,8 @@ class CodeAnalysisCreate(BaseModel):
     technologies: Optional[list[str]] = None
     data_model_files: Optional[list[str]] = None
     data_model_analysis: Optional[str] = None
+    routes_interfaces_files: Optional[list[str]] = None
+    routes_interfaces_analysis: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -75,6 +83,8 @@ class CodeAnalysisUpdate(BaseModel):
     technologies: Optional[list[str]] = None
     data_model_files: Optional[list[str]] = None
     data_model_analysis: Optional[str] = None
+    routes_interfaces_files: Optional[list[str]] = None
+    routes_interfaces_analysis: Optional[str] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
