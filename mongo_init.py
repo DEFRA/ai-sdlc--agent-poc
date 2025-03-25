@@ -115,6 +115,15 @@ def create_collection_with_validation(client):
                         "description": "List of technologies used in the repository",
                         "items": {"bsonType": "string"},
                     },
+                    "data_model_files": {
+                        "bsonType": ["array", "null"],
+                        "description": "List of identified data model files",
+                        "items": {"bsonType": "string"},
+                    },
+                    "data_model_analysis": {
+                        "bsonType": ["string", "null"],
+                        "description": "Generated data model analysis with ERD",
+                    },
                     "created_at": {
                         "bsonType": "date",
                         "description": "Timestamp when the analysis was created",

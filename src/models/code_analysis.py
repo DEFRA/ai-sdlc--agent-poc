@@ -1,4 +1,4 @@
-"""Code analysis models module."""
+"""Code analysis models."""
 
 from datetime import datetime
 from enum import Enum
@@ -38,6 +38,18 @@ class CodeAnalysisResponse(BaseModel):
     technologies: Optional[list[str]] = Field(
         None, description="List of technologies used in the repository"
     )
+    data_model_files: Optional[list[str]] = Field(
+        None, description="List of identified data model files"
+    )
+    data_model_analysis: Optional[str] = Field(
+        None, description="Generated data model analysis with ERD"
+    )
+    routes_interfaces_files: Optional[list[str]] = Field(
+        None, description="List of identified routes and interfaces files"
+    )
+    routes_interfaces_analysis: Optional[str] = Field(
+        None, description="Generated routes and interfaces analysis"
+    )
     created_at: datetime = Field(
         ..., description="Timestamp when the analysis was created"
     )
@@ -54,6 +66,10 @@ class CodeAnalysisCreate(BaseModel):
     architecture_documentation: Optional[str] = None
     ingested_repository: Optional[str] = None
     technologies: Optional[list[str]] = None
+    data_model_files: Optional[list[str]] = None
+    data_model_analysis: Optional[str] = None
+    routes_interfaces_files: Optional[list[str]] = None
+    routes_interfaces_analysis: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -65,6 +81,10 @@ class CodeAnalysisUpdate(BaseModel):
     architecture_documentation: Optional[str] = None
     ingested_repository: Optional[str] = None
     technologies: Optional[list[str]] = None
+    data_model_files: Optional[list[str]] = None
+    data_model_analysis: Optional[str] = None
+    routes_interfaces_files: Optional[list[str]] = None
+    routes_interfaces_analysis: Optional[str] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

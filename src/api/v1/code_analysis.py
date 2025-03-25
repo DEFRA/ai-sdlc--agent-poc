@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 from bson.errors import InvalidId
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import ValidationError
 
 from src.models.code_analysis import (
@@ -95,6 +95,8 @@ async def get_code_analysis(analysis_id: str) -> CodeAnalysisResponse:
             architecture_documentation=code_analysis.architecture_documentation,
             ingested_repository=code_analysis.ingested_repository,
             technologies=code_analysis.technologies,
+            data_model_files=code_analysis.data_model_files,
+            data_model_analysis=code_analysis.data_model_analysis,
             created_at=code_analysis.created_at,
             updated_at=code_analysis.updated_at,
         )
@@ -112,6 +114,69 @@ async def get_code_analysis(analysis_id: str) -> CodeAnalysisResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving the code analysis with ID {analysis_id}",
+        ) from e
+
+
+@router.get(
+    "/{analysis_id}/data-model-analysis",
+    response_class=Response,
+    summary="Get the data model analysis as plain text",
+    description="Retrieves just the data model analysis component as plain text",
+)
+async def get_data_model_analysis_text(analysis_id: str) -> Response:
+    """
+    Get the data model analysis as plain text.
+
+    Args:
+        analysis_id: The ID of the code analysis.
+
+    Returns:
+        The data model analysis as plain text.
+
+    Raises:
+        HTTPException: If the code analysis is not found or there's an error retrieving it.
+    """
+    try:
+        code_analysis = await code_analysis_service.get_code_analysis(analysis_id)
+        if not code_analysis:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Code analysis with ID {analysis_id} not found",
+            )
+
+        if not code_analysis.data_model_analysis:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No data model analysis available for code analysis with ID {analysis_id}",
+            )
+
+        # Return the data model analysis as plain text
+        logger.debug(
+            "Returning data_model_analysis as plain text. Length: %d characters",
+            len(code_analysis.data_model_analysis),
+        )
+
+        # Return as plain text response
+        return Response(
+            content=code_analysis.data_model_analysis,
+            media_type="text/plain",
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except InvalidId as e:
+        # Handle invalid ObjectId format specifically with a 404 error
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Code analysis with ID {analysis_id} not found",
+        ) from e
+    except Exception as e:
+        logger.error(
+            "Error retrieving data model analysis with ID %s: %s", analysis_id, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving the data model analysis with ID {analysis_id}",
         ) from e
 
 
@@ -151,6 +216,8 @@ async def list_code_analyses(
                 architecture_documentation=code_analysis.architecture_documentation,
                 ingested_repository=code_analysis.ingested_repository,
                 technologies=code_analysis.technologies,
+                data_model_files=code_analysis.data_model_files,
+                data_model_analysis=code_analysis.data_model_analysis,
                 created_at=code_analysis.created_at,
                 updated_at=code_analysis.updated_at,
             )
